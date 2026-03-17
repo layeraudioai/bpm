@@ -15,6 +15,9 @@ public:
 
     Sequencer();
 
+    void loadKit(std::shared_ptr<Kit> newKit);
+    std::shared_ptr<Kit> getKit() const;
+
     void setStep(DrumChannel channel, int step, bool active);
     bool getStep(DrumChannel channel, int step) const;
 
@@ -38,6 +41,7 @@ public:
 private:
     std::vector<std::bitset<NumSteps>> grid;
     std::vector<std::unique_ptr<DrumSynth>> synths;
+    std::shared_ptr<Kit> currentKit;
     mutable std::mutex gridMutex;
 
     float bpm = 120.0f;

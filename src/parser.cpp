@@ -7,8 +7,10 @@
 
 namespace bpm {
 
-CommandParser::CommandParser(std::shared_ptr<Sequencer> sequencer, std::shared_ptr<ProjectManager> projectManager)
-    : sequencer(sequencer), projectManager(projectManager) {}
+CommandParser::CommandParser(std::shared_ptr<Sequencer> sequencer,
+                           std::shared_ptr<ProjectManager> projectManager,
+                           std::shared_ptr<KitManager> kitManager)
+    : sequencer(sequencer), projectManager(projectManager), kitManager(kitManager) {}
 
 void CommandParser::toLower(std::string& s) {
     std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); });
@@ -31,45 +33,33 @@ DrumChannel CommandParser::stringToChannel(const std::string& s) {
     return DrumChannel::Count;
 }
 
-int stripToInt(char *str) {
-    char *src = str; // Pointer to traverse the original string
-    char *dst = str; // Pointer to write to the new, stripped string
-
-    while (*src) {
-        // Check if the character is alphanumeric
-        if (isalnum((unsigned char)*src)) {
-            // If it is, copy the character to the destination pointer
-            *dst++ = *src;
-        }
-        // Move the source pointer forward in any case
-        src++;
-    }
-    // Null-terminate the new, stripped string
-    *dst = '\0';
-
-    return *dst;
-}
-
 void CommandParser::parse(const std::string& input) {
     std::string s = input;
     toLower(s);
+    std::stringstream ss(s);
+    std::string command;
+    ss >> command;
 
-    if (s.find("save project ") == 0) {
-        std::string name = input.substr(13); 
-        if (projectManager->save(name, *sequencer)) {
-            std::cout << "Project '" << name << "' saved." << std::endl;
+    // Project commands
+    if (command == "save" || command == "load") {
+        std::string object_type;
+        ss >> object_type;
+        if (object_type == "project") {
+            std::string name;
+            ss >> name;
+            if (command == "save") {
+                if (projectManager->save(name, *sequencer)) {
+                    std::cout << "Project '" << name << "' saved." << std::endl;
+                }
+            } else {
+                if (projectManager->load(name, *sequencer)) {
+                    std::cout << "Project '" << name << "' loaded." << std::endl;
+                }
+            }
+            return;
         }
-        return;
     }
-
-    if (s.find("load project ") == 0) {
-        std::string name = input.substr(13);
-        if (projectManager->load(name, *sequencer)) {
-            std::cout << "Project '" << name << "' loaded." << std::endl;
-        }
-        return;
-    }
-
+    
     if (s == "list projects") {
         auto projects = projectManager->listProjects();
         if (projects.empty()) {
@@ -81,6 +71,44 @@ void CommandParser::parse(const std::string& input) {
         return;
     }
 
+    // Kit commands
+    if (command == "loadkit") {
+        std::string name;
+        ss >> name;
+        auto kit = kitManager->load(name);
+        if (kit) {
+            sequencer->loadKit(kit);
+        }
+        return;
+    }
+
+    if (command == "savekit") {
+        std::string name;
+        ss >> name;
+        auto currentKit = sequencer->getKit();
+        currentKit->setName(name);
+        kitManager->save(currentKit);
+        return;
+    }
+
+    if (command == "kits" || command == "listkits") {
+        auto kits = kitManager->listKits();
+        if (kits.empty()) {
+            std::cout << "No kits found." << std::endl;
+        } else {
+            std::cout << "Available kits:" << std::endl;
+            for (const auto& k : kits) std::cout << "  - " << k << std::endl;
+        }
+        return;
+    }
+
+    if (command == "newkit") {
+        sequencer->loadKit(Kit::createDefaultKit());
+        std::cout << "Loaded new default kit." << std::endl;
+        return;
+    }
+
+    // Sequencer commands
     if (s == "new random beat" || s == "randomize" || s == "shuffle") {
         sequencer->randomize();
         std::cout << "Pattern randomized." << std::endl;
@@ -93,6 +121,7 @@ void CommandParser::parse(const std::string& input) {
         return;
     }
 
+    // Tempo commands
     if (s == "faster" || s == "speed up" || s == "tempo up") {
         float newBpm = sequencer->getBPM() + 10.0f;
         sequencer->setBPM(newBpm);
@@ -107,13 +136,22 @@ void CommandParser::parse(const std::string& input) {
         std::cout << "BPM decreased to " << newBpm << std::endl;
         return;
     }
-
-    // Try to parse "kick on 1 5 9 13" or "kick on every 4"
-    std::stringstream ss(s);
-    std::string token;
-    ss >> token;
-
-    DrumChannel channel = stringToChannel(token);
+    
+    if (command == "set" || command == "set_to") {
+        std::string param;
+        ss >> param;
+        if (param == "bpm" || param == "tempo") {
+            float bpm;
+            if (ss >> bpm) {
+                sequencer->setBPM(bpm);
+                std::cout << "BPM set to " << bpm << std::endl;
+            }
+        }
+        return;
+    }
+    
+    // Pattern commands
+    DrumChannel channel = stringToChannel(command);
     if (channel != DrumChannel::Count) {
         std::string on;
         ss >> on;
@@ -126,7 +164,7 @@ void CommandParser::parse(const std::string& input) {
                     for (int i = 0; i < Sequencer::NumSteps; i += interval) {
                         sequencer->setStep(channel, i, true);
                     }
-                    std::cout << "Set " << token << " on every " << interval << " steps." << std::endl;
+                    std::cout << "Set " << command << " on every " << interval << " steps." << std::endl;
                 }
             } else {
                 // Parse specific steps: "kick on 1 5 9 13"
@@ -137,21 +175,8 @@ void CommandParser::parse(const std::string& input) {
                     while (ss >> step) {
                         sequencer->setStep(channel, step - 1, true);
                     }
-                    std::cout << "Set " << token << " on specific steps." << std::endl;
+                    std::cout << "Set " << command << " on specific steps." << std::endl;
                 } catch (...) {}
-            }
-        }
-    }
-    
-    // Try to parse "set to" or "set"
-    if (s.find("set") != std::string::npos) {        
-        std::string param;
-        ss >> param;
-        if (param == "bpm" || s.find("tempo")) {
-            float bpm;
-            if (ss >> bpm) {
-                sequencer->setBPM(bpm);
-                std::cout << "BPM set to " << bpm << std::endl;
             }
         }
     }

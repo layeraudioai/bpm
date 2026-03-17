@@ -8,6 +8,7 @@
 #include "bpm/audio_engine.h"
 #include "bpm/parser.h"
 #include "bpm/project_manager.h"
+#include "bpm/kit_manager.h"
 
 using namespace bpm;
 
@@ -22,6 +23,7 @@ void printHelp() {
 int main(int argc, char** argv) {
     auto sequencer = std::make_shared<Sequencer>();
     auto projectManager = std::make_shared<ProjectManager>();
+    auto kitManager = std::make_shared<KitManager>();
     
     std::string loadOnBoot = "";
     bool newProject = false;
@@ -76,11 +78,15 @@ int main(int argc, char** argv) {
     std::cout << "  - 'save project mybeat'" << std::endl;
     std::cout << "  - 'load project mybeat'" << std::endl;
     std::cout << "  - 'list projects'" << std::endl;
+    std::cout << "  - 'savekit mykit'" << std::endl;
+    std::cout << "  - 'loadkit mykit'" << std::endl;
+    std::cout << "  - 'kits'" << std::endl;
+    std::cout << "  - 'newkit'" << std::endl;
     std::cout << "  - 'new random beat'" << std::endl;
     std::cout << "  - 'kick on every 4'" << std::endl;
     std::cout << "------------------------------------------" << std::endl;
 
-    CommandParser parser(sequencer, projectManager);
+    CommandParser parser(sequencer, projectManager, kitManager);
     AudioEngine engine(sequencer);
 
     if (!engine.start()) {

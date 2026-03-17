@@ -1,41 +1,37 @@
 #include "bpm/sequencer.h"
 #include <iostream>
+#include <stdexcept>
 
 namespace bpm {
 
 Sequencer::Sequencer() : grid(NumTracks) {
-    // Initialize synths for each channel
+    loadKit(Kit::createDefaultKit());
+}
+
+void Sequencer::loadKit(std::shared_ptr<Kit> newKit) {
+    if (!newKit) {
+        std::cerr << "Error: tried to load a null kit. Loading default kit instead." << std::endl;
+        currentKit = Kit::createDefaultKit();
+    } else {
+        currentKit = newKit;
+    }
+
+    synths.clear();
+    synths.resize(NumTracks);
     for (int i = 0; i < NumTracks; ++i) {
         DrumChannel channel = static_cast<DrumChannel>(i);
-        switch (channel) {
-            case DrumChannel::KickLeft:
-            case DrumChannel::KickRight:
-                synths.push_back(std::make_unique<SimpleKick>());
-                break;
-            case DrumChannel::ClosedHat:
-            case DrumChannel::OpenHat:
-            case DrumChannel::OpeningHat:
-                synths.push_back(std::make_unique<SimpleHat>());
-                break;
-            case DrumChannel::Crash:
-            case DrumChannel::Ride:
-                synths.push_back(std::make_unique<SimpleCymbal>());
-                break;
-            case DrumChannel::SmallTom:
-            case DrumChannel::MidTom:
-            case DrumChannel::HighTom:
-                synths.push_back(std::make_unique<SimpleTom>());
-                break;
-            case DrumChannel::SnareClosed:
-            case DrumChannel::SnareOpen:
-            case DrumChannel::SnareRim:
-                synths.push_back(std::make_unique<SimpleSnare>());
-                break;
-            default:
-                synths.push_back(std::make_unique<SimpleKick>());
-                break;
+        try {
+            const auto& params = currentKit->getParams(channel);
+            synths[i] = Kit::createSynth(params);
+        } catch (const std::out_of_range& e) {
+            std::cerr << "Warning: No params for " << channelToString(channel) << " in kit '" << currentKit->getName() << "'. Using a default kick." << std::endl;
+            synths[i] = Kit::createSynth({"simplekick", 120.0f, 0.5f});
         }
     }
+}
+
+std::shared_ptr<Kit> Sequencer::getKit() const {
+    return currentKit;
 }
 
 void Sequencer::setStep(DrumChannel channel, int step, bool active) {
@@ -100,7 +96,7 @@ void Sequencer::process(float sampleRate, int numSamples, float* outputBuffer) {
 
             // Trigger synths for current step
             for (int t = 0; t < NumTracks; ++t) {
-                if (grid[t][currentStep]) {
+                if (grid[t][currentStep] && synths[t]) {
                     synths[t]->trigger();
                 }
             }
@@ -108,7 +104,9 @@ void Sequencer::process(float sampleRate, int numSamples, float* outputBuffer) {
 
         // Process synths and mix
         for (int t = 0; t < NumTracks; ++t) {
-            mixedSample += synths[t]->process(sampleRate);
+            if (synths[t]) {
+                mixedSample += synths[t]->process(sampleRate);
+            }
         }
 
         // Clip/Limit (very basic)

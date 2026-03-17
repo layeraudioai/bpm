@@ -3,9 +3,15 @@
 #include <vector>
 #include <cmath>
 #include <string>
+#include <memory>
+#include <map>
 
 namespace bpm {
 
+// --- Forward declarations ---
+class DrumSynth;
+
+// --- Enums and Converters ---
 enum class DrumChannel {
     KickLeft = 0,
     KickRight,
@@ -42,61 +48,78 @@ inline std::string channelToString(DrumChannel channel) {
     }
 }
 
-class DrumSynth {
-public:
-    virtual ~DrumSynth() = default;
-    virtual void trigger() = 0;
-    virtual float process(float sampleRate) = 0;
+// --- Kit and Synth Parameters ---
+struct DrumSynthParams {
+    std::string type;
+    float frequency = 220.0f;
+    float decay = 0.5f; // in seconds
 };
 
-// Simple synthetic drum voices
+class Kit {
+public:
+    Kit(const std::string& name = "default");
+
+    const std::string& getName() const;
+    void setName(const std::string& newName);
+
+    void setParams(DrumChannel channel, const DrumSynthParams& params);
+    const DrumSynthParams& getParams(DrumChannel channel) const;
+    std::map<DrumChannel, DrumSynthParams>& getAllParams();
+
+    static std::shared_ptr<Kit> createDefaultKit();
+    static std::unique_ptr<DrumSynth> createSynth(const DrumSynthParams& params);
+
+private:
+    std::string name;
+    std::map<DrumChannel, DrumSynthParams> params;
+};
+
+// --- Drum Synths ---
+class DrumSynth {
+public:
+    DrumSynth(const DrumSynthParams& params);
+    virtual ~DrumSynth() = default;
+    virtual void trigger();
+    virtual float process(float sampleRate) = 0;
+
+protected:
+    DrumSynthParams params;
+    float env = 0.0f;
+    bool active = false;
+};
+
 class SimpleKick : public DrumSynth {
 public:
-    void trigger() override;
+    SimpleKick(const DrumSynthParams& params);
     float process(float sampleRate) override;
 private:
     float phase = 0.0f;
-    float frequency = 150.0f;
-    float decay = 1.0f;
-    bool active = false;
 };
 
 class SimpleSnare : public DrumSynth {
 public:
-    void trigger() override;
+    SimpleSnare(const DrumSynthParams& params);
     float process(float sampleRate) override;
-private:
-    float decay = 1.0f;
-    bool active = false;
 };
 
 class SimpleHat : public DrumSynth {
 public:
-    void trigger() override;
+    SimpleHat(const DrumSynthParams& params);
     float process(float sampleRate) override;
-private:
-    float decay = 1.0f;
-    bool active = false;
 };
 
 class SimpleTom : public DrumSynth {
 public:
-    void trigger() override;
+    SimpleTom(const DrumSynthParams& params);
     float process(float sampleRate) override;
 private:
     float phase = 0.0f;
-    float frequency = 250.0f;
-    float decay = 1.0f;
-    bool active = false;
 };
 
 class SimpleCymbal : public DrumSynth {
 public:
-    void trigger() override;
+    SimpleCymbal(const DrumSynthParams& params);
     float process(float sampleRate) override;
-private:
-    float decay = 1.0f;
-    bool active = false;
 };
 
 } // namespace bpm
