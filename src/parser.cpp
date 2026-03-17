@@ -177,6 +177,12 @@ void CommandParser::parse(const std::string& input) {
                 sequencer->setBPM(bpm);
                 std::cout << "BPM set to " << bpm << std::endl;
             }
+        } else if (param == "steps") {
+            int steps;
+            if (ss >> steps) {
+                sequencer->setNumSteps(steps);
+                std::cout << "Number of steps set to " << steps << std::endl;
+            }
         }
         return;
     }
@@ -192,7 +198,7 @@ void CommandParser::parse(const std::string& input) {
             if (next == "every") {
                 int interval;
                 if (ss >> interval) {
-                    for (int i = 0; i < Sequencer::NumSteps; i += interval) {
+                    for (int i = 0; i < sequencer->getNumSteps(); i += interval) {
                         sequencer->setStep(channel, i, true);
                     }
                     std::cout << "Set " << command << " on every " << interval << " steps." << std::endl;

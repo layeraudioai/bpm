@@ -85,6 +85,7 @@ int main(int argc, char** argv) {
     std::cout << "  - 'new random kit'" << std::endl;
     std::cout << "  - 'new random beat'" << std::endl;
     std::cout << "  - 'kick on every 4'" << std::endl;
+    std::cout << "  - 'set steps 32'" << std::endl;
     std::cout << "------------------------------------------" << std::endl;
 
     CommandParser parser(sequencer, projectManager, kitManager);
