@@ -3,6 +3,7 @@
 #include <sstream>
 #include <vector>
 #include <iostream>
+#include <cstring>
 
 namespace bpm {
 
@@ -28,6 +29,25 @@ DrumChannel CommandParser::stringToChannel(const std::string& s) {
     if (s == "midtom") return DrumChannel::MidTom;
     if (s == "hightom") return DrumChannel::HighTom;
     return DrumChannel::Count;
+}
+
+int stripToInt(char *str) {
+    char *src = str; // Pointer to traverse the original string
+    char *dst = str; // Pointer to write to the new, stripped string
+
+    while (*src) {
+        // Check if the character is alphanumeric
+        if (isalnum((unsigned char)*src)) {
+            // If it is, copy the character to the destination pointer
+            *dst++ = *src;
+        }
+        // Move the source pointer forward in any case
+        src++;
+    }
+    // Null-terminate the new, stripped string
+    *dst = '\0';
+
+    return *dst;
 }
 
 void CommandParser::parse(const std::string& input) {
@@ -88,19 +108,6 @@ void CommandParser::parse(const std::string& input) {
         return;
     }
 
-    if (s.find("bpm") || s.find("set tempo") == 0) {
-        std::stringstream ss(s);
-        std::string token;
-        ss >> token; // "bpm" or "set"
-        if (token == "set") ss >> token; // skip "tempo"
-        int bpm;
-        if (ss >> bpm) {
-            sequencer->setBPM(static_cast<float>(bpm));
-            std::cout << "BPM set to " << bpm << std::endl;
-            return;
-        }
-    }
-    
     // Try to parse "kick on 1 5 9 13" or "kick on every 4"
     std::stringstream ss(s);
     std::string token;
@@ -134,9 +141,19 @@ void CommandParser::parse(const std::string& input) {
                 } catch (...) {}
             }
         }
-    } else {
-        std::cout << "Unknown command: " << s << std::endl;
+    }
+    
+    // Try to parse "set to" or "set"
+    if (s.find("set") != std::string::npos) {        
+        std::string param;
+        ss >> param;
+        if (param == "bpm" || s.find("tempo")) {
+            float bpm;
+            if (ss >> bpm) {
+                sequencer->setBPM(bpm);
+                std::cout << "BPM set to " << bpm << std::endl;
+            }
+        }
     }
 }
-
 } // namespace bpm
