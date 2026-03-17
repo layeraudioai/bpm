@@ -38,3 +38,5 @@ While running, you can type commands:
 - `faster` / `slower`: Adjust BPM by 10.
 - `<drum> on every <interval>`: e.g., `kick on every 4`.
 - `<drum> on <step1> <step2> ...`: e.g., `snare on 5 13`.
+
+- copyright 2026 xbcx google
