@@ -88,6 +88,19 @@ void CommandParser::parse(const std::string& input) {
         return;
     }
 
+    if (s.find("bpm") || s.find("set tempo") == 0) {
+        std::stringstream ss(s);
+        std::string token;
+        ss >> token; // "bpm" or "set"
+        if (token == "set") ss >> token; // skip "tempo"
+        int bpm;
+        if (ss >> bpm) {
+            sequencer->setBPM(static_cast<float>(bpm));
+            std::cout << "BPM set to " << bpm << std::endl;
+            return;
+        }
+    }
+    
     // Try to parse "kick on 1 5 9 13" or "kick on every 4"
     std::stringstream ss(s);
     std::string token;
