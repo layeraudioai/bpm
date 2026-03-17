@@ -82,6 +82,7 @@ int main(int argc, char** argv) {
     std::cout << "  - 'loadkit mykit'" << std::endl;
     std::cout << "  - 'kits'" << std::endl;
     std::cout << "  - 'newkit'" << std::endl;
+    std::cout << "  - 'new random kit'" << std::endl;
     std::cout << "  - 'new random beat'" << std::endl;
     std::cout << "  - 'kick on every 4'" << std::endl;
     std::cout << "------------------------------------------" << std::endl;

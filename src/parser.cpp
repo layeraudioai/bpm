@@ -4,6 +4,7 @@
 #include <vector>
 #include <iostream>
 #include <cstring>
+#include <cstdlib>
 
 namespace bpm {
 
@@ -11,6 +12,30 @@ CommandParser::CommandParser(std::shared_ptr<Sequencer> sequencer,
                            std::shared_ptr<ProjectManager> projectManager,
                            std::shared_ptr<KitManager> kitManager)
     : sequencer(sequencer), projectManager(projectManager), kitManager(kitManager) {}
+
+std::shared_ptr<Kit> createRandomKit() {
+    auto kit = std::make_shared<Kit>("random");
+
+    auto randFloat = [](float min, float max) {
+        return min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (max - min)));
+    };
+
+    kit->setParams(DrumChannel::KickLeft,     {"simplekick", randFloat(40.0f, 150.0f), randFloat(0.3f, 0.8f)});
+    kit->setParams(DrumChannel::KickRight,    {"simplekick", randFloat(40.0f, 150.0f), randFloat(0.3f, 0.8f)});
+    kit->setParams(DrumChannel::SnareClosed,  {"simplesnare", 0.0f, randFloat(0.1f, 0.4f)});
+    kit->setParams(DrumChannel::SnareOpen,    {"simplesnare", 0.0f, randFloat(0.2f, 0.6f)});
+    kit->setParams(DrumChannel::SnareRim,     {"simplesnare", 0.0f, randFloat(0.05f, 0.2f)});
+    kit->setParams(DrumChannel::ClosedHat,    {"simplehat", 0.0f, randFloat(0.05f, 0.15f)});
+    kit->setParams(DrumChannel::OpenHat,      {"simplehat", 0.0f, randFloat(0.3f, 0.8f)});
+    kit->setParams(DrumChannel::OpeningHat,   {"simplehat", 0.0f, randFloat(0.2f, 0.5f)});
+    kit->setParams(DrumChannel::Crash,        {"simplecymbal", 0.0f, randFloat(1.0f, 2.5f)});
+    kit->setParams(DrumChannel::Ride,         {"simplecymbal", 0.0f, randFloat(1.5f, 3.0f)});
+    kit->setParams(DrumChannel::SmallTom,     {"simpletom", randFloat(250.0f, 400.0f), randFloat(0.2f, 0.5f)});
+    kit->setParams(DrumChannel::MidTom,       {"simpletom", randFloat(150.0f, 300.0f), randFloat(0.3f, 0.6f)});
+    kit->setParams(DrumChannel::HighTom,      {"simpletom", randFloat(100.0f, 250.0f), randFloat(0.4f, 0.7f)});
+
+    return kit;
+}
 
 void CommandParser::toLower(std::string& s) {
     std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); });
@@ -105,6 +130,12 @@ void CommandParser::parse(const std::string& input) {
     if (command == "newkit") {
         sequencer->loadKit(Kit::createDefaultKit());
         std::cout << "Loaded new default kit." << std::endl;
+        return;
+    }
+
+    if (s == "new random kit") {
+        sequencer->loadKit(createRandomKit());
+        std::cout << "Generated new random kit." << std::endl;
         return;
     }
 
