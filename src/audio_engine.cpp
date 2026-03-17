@@ -44,6 +44,7 @@ void AudioEngine::stop() {
 }
 
 void AudioEngine::audioCallback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {
+    (void)pInput;
     AudioEngine* engine = static_cast<AudioEngine*>(pDevice->pUserData);
     if (engine && engine->sequencer) {
         engine->sequencer->process(pDevice->sampleRate, frameCount, static_cast<float*>(pOutput));

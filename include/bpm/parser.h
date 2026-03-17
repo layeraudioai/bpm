@@ -20,7 +20,7 @@ private:
     std::shared_ptr<ProjectManager> projectManager;
     std::shared_ptr<KitManager> kitManager;
     void toLower(std::string& s);
-    DrumChannel stringToChannel(const std::string& s);
+    int stringToChannelIndex(const std::string& s);
 };
 
 } // namespace bpm

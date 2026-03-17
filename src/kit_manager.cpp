@@ -24,8 +24,9 @@ bool KitManager::save(std::shared_ptr<Kit> kit) {
 
     file << "# Kit: " << kit->getName() << std::endl << std::endl;
 
-    for (const auto& [channel, params] : kit->getAllParams()) {
-        std::string channelName = channelToString(channel);
+    for (const auto& channel : kit->getAllParams()) {
+        std::string channelName = channel.ToString();
+        const auto& params = channel.params;
         std::transform(channelName.begin(), channelName.end(), channelName.begin(),
                        [](unsigned char c){ return std::tolower(c); });
         std::replace(channelName.begin(), channelName.end(), ' ', '_');
@@ -53,46 +54,45 @@ std::shared_ptr<Kit> KitManager::load(const std::string& name) {
     auto kit = std::make_shared<Kit>(name);
     std::ifstream file(filePath);
     std::string line;
-
-    std::map<std::string, DrumChannel> channelMap;
-    for (int i = 0; i < static_cast<int>(DrumChannel::Count); ++i) {
-        DrumChannel ch = static_cast<DrumChannel>(i);
-        std::string chName = channelToString(ch);
-        std::transform(chName.begin(), chName.end(), chName.begin(),
-                       [](unsigned char c){ return std::tolower(c); });
-        std::replace(chName.begin(), chName.end(), ' ', '_');
-        channelMap[chName] = ch;
-    }
     
-    DrumChannel currentChannel = DrumChannel::Count;
+    std::string currentInstrumentName;
+    DrumSynthParams currentParams;
+    bool readingInstrument = false;
 
     while (std::getline(file, line)) {
         if (line.empty() || line[0] == '#') continue;
 
         if (line[0] == '[' && line.back() == ']') {
-            std::string channelName = line.substr(1, line.length() - 2);
-            if (channelMap.count(channelName)) {
-                currentChannel = channelMap[channelName];
-            } else {
-                currentChannel = DrumChannel::Count;
+            std::string section = line.substr(1, line.length() - 2);
+            if (section == "instrument") {
+                if (readingInstrument) {
+                    kit->addInstrument(currentInstrumentName, currentParams);
+                }
+                readingInstrument = true;
+                currentInstrumentName = "unnamed";
+                currentParams = DrumSynthParams();
             }
-        } else if (currentChannel != DrumChannel::Count) {
+        } else if (readingInstrument) {
             size_t eqPos = line.find('=');
             if (eqPos == std::string::npos) continue;
 
             std::string paramName = line.substr(0, eqPos);
             std::string value = line.substr(eqPos + 1);
 
-            DrumSynthParams params = kit->getParams(currentChannel);
-            if (paramName == "type") {
-                params.type = value;
+            if (paramName == "name") {
+                currentInstrumentName = value;
+            } else if (paramName == "type") {
+                currentParams.type = value;
             } else if (paramName == "frequency") {
-                params.frequency = std::stof(value);
+                currentParams.frequency = std::stof(value);
             } else if (paramName == "decay") {
-                params.decay = std::stof(value);
+                currentParams.decay = std::stof(value);
             }
-            kit->setParams(currentChannel, params);
         }
+    }
+    
+    if (readingInstrument) {
+        kit->addInstrument(currentInstrumentName, currentParams);
     }
 
     std::cout << "Kit '" << name << "' loaded." << std::endl;

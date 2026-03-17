@@ -11,15 +11,16 @@ namespace bpm {
 class Sequencer {
 public:
     static constexpr int NumSteps = 64;
-    static constexpr int NumTracks = static_cast<int>(DrumChannel::Count);
 
     Sequencer();
 
     void loadKit(std::shared_ptr<Kit> newKit);
     std::shared_ptr<Kit> getKit() const;
 
-    void setStep(DrumChannel channel, int step, bool active);
-    bool getStep(DrumChannel channel, int step) const;
+    void setStep(int channelIndex, int step, bool active);
+    bool getStep(int channelIndex, int step) const;
+    void setNumSteps(int numSteps);
+    int getNumSteps() const;
 
     void setBPM(float bpm);
     float getBPM() const;

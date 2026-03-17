@@ -23,8 +23,9 @@ bool ProjectManager::save(const std::string& name, const Sequencer& sequencer) {
     // Save BPM
     ofs << sequencer.getBPM() << "\n";
 
-    // Save grid
     const auto& grid = sequencer.getFullGrid();
+    ofs << grid.size() << "\n";
+    
     for (const auto& track : grid) {
         for (int i = 0; i < Sequencer::NumSteps; ++i) {
             ofs << (track[i] ? '1' : '0');
@@ -60,8 +61,11 @@ bool ProjectManager::load(const std::string& name, Sequencer& sequencer) {
         std::cerr << "Invalid BPM in project file." << std::endl;
     }
 
-    std::vector<std::bitset<64>> newGrid(Sequencer::NumTracks);
-    for (int t = 0; t < Sequencer::NumTracks; ++t) {
+    size_t numTracks = 0;
+    if (std::getline(ifs, line)) numTracks = std::stoul(line);
+
+    std::vector<std::bitset<64>> newGrid(numTracks);
+    for (size_t t = 0; t < numTracks; ++t) {
         if (!std::getline(ifs, line)) break;
         for (int s = 0; s < (int)std::min((size_t)Sequencer::NumSteps, line.size()); ++s) {
             newGrid[t][s] = (line[s] == '1');

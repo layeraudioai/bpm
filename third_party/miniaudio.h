@@ -73742,7 +73742,11 @@ MA_API ma_result ma_node_graph_read_pcm_frames(ma_node_graph* pNodeGraph, void* 
             framesToRead = 0xFFFFFFFF;
         }
 
-        pRunningFramesOut = (float*)ma_offset_pcm_frames_ptr(pFramesOut, totalFramesRead, ma_format_f32, channels);
+        if (pFramesOut != NULL) {
+            pRunningFramesOut = (float*)ma_offset_pcm_frames_ptr(pFramesOut, totalFramesRead, ma_format_f32, channels);
+        } else {
+            pRunningFramesOut = NULL;
+        }
 
         /* If there's anything in the cache, consume that first. */
         if (pNodeGraph->processingCacheFramesRemaining > 0) {
@@ -73753,7 +73757,9 @@ MA_API ma_result ma_node_graph_read_pcm_frames(ma_node_graph* pNodeGraph, void* 
                 framesToReadFromCache = pNodeGraph->processingCacheFramesRemaining;
             }
 
-            MA_COPY_MEMORY(pRunningFramesOut, pNodeGraph->pProcessingCache, framesToReadFromCache * channels * sizeof(float));
+            if (pRunningFramesOut != NULL) {
+                MA_COPY_MEMORY(pRunningFramesOut, pNodeGraph->pProcessingCache, framesToReadFromCache * channels * sizeof(float));
+            }
             MA_MOVE_MEMORY(pNodeGraph->pProcessingCache, pNodeGraph->pProcessingCache + (framesToReadFromCache * channels), (pNodeGraph->processingCacheFramesRemaining - framesToReadFromCache) * channels * sizeof(float));
             pNodeGraph->processingCacheFramesRemaining -= framesToReadFromCache;
 
@@ -73804,7 +73810,7 @@ MA_API ma_result ma_node_graph_read_pcm_frames(ma_node_graph* pNodeGraph, void* 
     }
 
     /* Let's go ahead and silence any leftover frames just for some added safety to ensure the caller doesn't try emitting garbage out of the speakers. */
-    if (totalFramesRead < frameCount) {
+    if (pFramesOut != NULL && totalFramesRead < frameCount) {
         ma_silence_pcm_frames(ma_offset_pcm_frames_ptr(pFramesOut, totalFramesRead, ma_format_f32, channels), (frameCount - totalFramesRead), ma_format_f32, channels);
     }
 
@@ -75125,8 +75131,10 @@ static ma_result ma_node_read_pcm_frames(ma_node* pNode, ma_uint32 outputBusInde
             timeOffsetBeg = frameCount;
         }
 
-        ma_silence_pcm_frames(pFramesOut, timeOffsetBeg, ma_format_f32, ma_node_get_output_channels(pNode, outputBusIndex));
-        pFramesOut += timeOffsetBeg * ma_node_get_output_channels(pNode, outputBusIndex);
+        if (pFramesOut != NULL) {
+            ma_silence_pcm_frames(pFramesOut, timeOffsetBeg, ma_format_f32, ma_node_get_output_channels(pNode, outputBusIndex));
+            pFramesOut += timeOffsetBeg * ma_node_get_output_channels(pNode, outputBusIndex);
+        }
         frameCount -= timeOffsetBeg;
     }
 

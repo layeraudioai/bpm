@@ -20,19 +20,19 @@ std::shared_ptr<Kit> createRandomKit() {
         return min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (max - min)));
     };
 
-    kit->setParams(DrumChannel::KickLeft,     {"simplekick", randFloat(40.0f, 150.0f), randFloat(0.3f, 0.8f)});
-    kit->setParams(DrumChannel::KickRight,    {"simplekick", randFloat(40.0f, 150.0f), randFloat(0.3f, 0.8f)});
-    kit->setParams(DrumChannel::SnareClosed,  {"simplesnare", 0.0f, randFloat(0.1f, 0.3f)});
-    kit->setParams(DrumChannel::SnareOpen,    {"simplesnare", 0.0f, randFloat(0.2f, 0.4f)});
-    kit->setParams(DrumChannel::SnareRim,     {"simplesnare", 0.0f, randFloat(0.05f, 0.2f)});
-    kit->setParams(DrumChannel::ClosedHat,    {"simplehat", 0.0f, randFloat(0.02f, 0.1f)});
-    kit->setParams(DrumChannel::OpenHat,      {"simplehat", 0.0f, randFloat(0.2f, 0.4f)});
-    kit->setParams(DrumChannel::OpeningHat,   {"simplehat", 0.0f, randFloat(0.15f, 0.3f)});
-    kit->setParams(DrumChannel::Crash,        {"simplecymbal", 0.0f, randFloat(1.0f, 2.5f)});
-    kit->setParams(DrumChannel::Ride,         {"simplecymbal", 0.0f, randFloat(1.5f, 3.0f)});
-    kit->setParams(DrumChannel::SmallTom,     {"simpletom", randFloat(250.0f, 400.0f), randFloat(0.2f, 0.5f)});
-    kit->setParams(DrumChannel::MidTom,       {"simpletom", randFloat(150.0f, 300.0f), randFloat(0.3f, 0.6f)});
-    kit->setParams(DrumChannel::HighTom,      {"simpletom", randFloat(100.0f, 250.0f), randFloat(0.4f, 0.7f)});
+    kit->addInstrument("KickLeft",     {"simplekick", randFloat(40.0f, 150.0f), randFloat(0.3f, 0.8f)});
+    kit->addInstrument("KickRight",    {"simplekick", randFloat(40.0f, 150.0f), randFloat(0.3f, 0.8f)});
+    kit->addInstrument("SnareClosed",  {"simplesnare", 0.0f, randFloat(0.1f, 0.3f)});
+    kit->addInstrument("SnareOpen",    {"simplesnare", 0.0f, randFloat(0.2f, 0.4f)});
+    kit->addInstrument("SnareRim",     {"simplesnare", 0.0f, randFloat(0.05f, 0.2f)});
+    kit->addInstrument("ClosedHat",    {"simplehat", 0.0f, randFloat(0.02f, 0.1f)});
+    kit->addInstrument("OpenHat",      {"simplehat", 0.0f, randFloat(0.2f, 0.4f)});
+    kit->addInstrument("OpeningHat",   {"simplehat", 0.0f, randFloat(0.15f, 0.3f)});
+    kit->addInstrument("Crash",        {"simplecymbal", 0.0f, randFloat(1.0f, 2.5f)});
+    kit->addInstrument("Ride",         {"simplecymbal", 0.0f, randFloat(1.5f, 3.0f)});
+    kit->addInstrument("SmallTom",     {"simpletom", randFloat(250.0f, 400.0f), randFloat(0.2f, 0.5f)});
+    kit->addInstrument("MidTom",       {"simpletom", randFloat(150.0f, 300.0f), randFloat(0.3f, 0.6f)});
+    kit->addInstrument("HighTom",      {"simpletom", randFloat(100.0f, 250.0f), randFloat(0.4f, 0.7f)});
 
     return kit;
 }
@@ -41,21 +41,27 @@ void CommandParser::toLower(std::string& s) {
     std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); });
 }
 
-DrumChannel CommandParser::stringToChannel(const std::string& s) {
-    if (s == "kick" || s == "kickleft") return DrumChannel::KickLeft;
-    if (s == "kickright") return DrumChannel::KickRight;
-    if (s == "snare" || s == "snareopen") return DrumChannel::SnareOpen;
-    if (s == "snareclosed") return DrumChannel::SnareClosed;
-    if (s == "rim") return DrumChannel::SnareRim;
-    if (s == "hat" || s == "closedhat") return DrumChannel::ClosedHat;
-    if (s == "openhat") return DrumChannel::OpenHat;
-    if (s == "openinghat") return DrumChannel::OpeningHat;
-    if (s == "crash") return DrumChannel::Crash;
-    if (s == "ride") return DrumChannel::Ride;
-    if (s == "smalltom") return DrumChannel::SmallTom;
-    if (s == "midtom") return DrumChannel::MidTom;
-    if (s == "hightom") return DrumChannel::HighTom;
-    return DrumChannel::Count;
+int CommandParser::stringToChannelIndex(const std::string& s) {
+    auto kit = sequencer->getKit();
+    auto instruments = kit->getInstruments();
+    for (size_t i = 0; i < instruments.size(); ++i) {
+        std::string instrName = instruments[i].name;
+        std::transform(instrName.begin(), instrName.end(), instrName.begin(), [](unsigned char c){ return std::tolower(c); });
+        if (instrName == s) {
+            return (int)i;
+        }
+    }
+
+    // Fuzzy matching for partial names (e.g. "kick" -> "KickLeft")
+    for (size_t i = 0; i < instruments.size(); ++i) {
+        std::string instrName = instruments[i].name;
+        std::transform(instrName.begin(), instrName.end(), instrName.begin(), [](unsigned char c){ return std::tolower(c); });
+        if (instrName.find(s) != std::string::npos) {
+            return (int)i;
+        }
+    }
+
+    return -1;
 }
 
 void CommandParser::parse(const std::string& input) {
@@ -188,8 +194,8 @@ void CommandParser::parse(const std::string& input) {
     }
     
     // Pattern commands
-    DrumChannel channel = stringToChannel(command);
-    if (channel != DrumChannel::Count) {
+    int channel = stringToChannelIndex(command);
+    if (channel != -1) {
         std::string on;
         ss >> on;
         if (on == "on") {

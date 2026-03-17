@@ -4,7 +4,7 @@
 
 namespace bpm {
 
-Sequencer::Sequencer() : grid(NumTracks) {
+Sequencer::Sequencer() {
     loadKit(Kit::createDefaultKit());
 }
 
@@ -17,14 +17,23 @@ void Sequencer::loadKit(std::shared_ptr<Kit> newKit) {
     }
 
     synths.clear();
-    synths.resize(NumTracks);
-    for (int i = 0; i < NumTracks; ++i) {
-        DrumChannel channel = static_cast<DrumChannel>(i);
+    
+    std::lock_guard<std::mutex> lock(gridMutex);
+    
+    // Resize grid to match new kit size
+    size_t numInstruments = currentKit->getInstruments().size();
+    if (grid.size() != numInstruments) {
+        grid.resize(numInstruments);
+    }
+
+    synths.resize(numInstruments);
+    for (size_t i = 0; i < numInstruments; ++i) {
         try {
-            const auto& params = currentKit->getParams(channel);
+            const auto& params = currentKit->getParams(i);
             synths[i] = Kit::createSynth(params);
         } catch (const std::out_of_range& e) {
-            std::cerr << "Warning: No params for " << channelToString(channel) << " in kit '" << currentKit->getName() << "'. Using a default kick." << std::endl;
+            // Should not happen with index iteration
+            std::cerr << "Warning: No params for index " << i << " in kit '" << currentKit->getName() << "'. Using a default kick." << std::endl;
             synths[i] = Kit::createSynth({"simplekick", 120.0f, 0.5f});
         }
     }
@@ -34,20 +43,33 @@ std::shared_ptr<Kit> Sequencer::getKit() const {
     return currentKit;
 }
 
-void Sequencer::setStep(DrumChannel channel, int step, bool active) {
+void Sequencer::setStep(int channelIndex, int step, bool active) {
     std::lock_guard<std::mutex> lock(gridMutex);
-    if (step >= 0 && step < NumSteps) {
-        grid[static_cast<int>(channel)][step] = active;
+    if (channelIndex >= 0 && channelIndex < grid.size() && step >= 0 && step < NumSteps) {
+        grid[channelIndex][step] = active;
     }
 }
 
-bool Sequencer::getStep(DrumChannel channel, int step) const {
+bool Sequencer::getStep(int channelIndex, int step) const {
     std::lock_guard<std::mutex> lock(gridMutex);
-    if (step >= 0 && step < NumSteps) {
-        return grid[static_cast<int>(channel)][step];
+    if (channelIndex >= 0 && channelIndex < grid.size() && step >= 0 && step < NumSteps) {
+        return grid[channelIndex][step];
     }
     return false;
 }
+
+void Sequencer::setNumSteps(int newNumSteps) {
+    if (newNumSteps > NumSteps) {
+        std::cerr << "Error: newNumSteps exceeds maximum of " << NumSteps << ". Ignoring." << std::endl;
+        return;
+    }
+    // No need to resize bitsets, just ignore extra steps in processing
+}
+
+int Sequencer::getNumSteps() const {
+    return NumSteps;
+}
+
 
 void Sequencer::setBPM(float newBpm) {
     std::lock_guard<std::mutex> lock(gridMutex);
@@ -68,7 +90,7 @@ void Sequencer::clear() {
 
 void Sequencer::randomize() {
     std::lock_guard<std::mutex> lock(gridMutex);
-    for (int t = 0; t < NumTracks; ++t) {
+    for (size_t t = 0; t < grid.size(); ++t) {
         for (int s = 0; s < NumSteps; ++s) {
             // ~5% chance of a trigger per step per track
             grid[t][s] = (std::rand() % 100 < 5);
@@ -95,7 +117,7 @@ void Sequencer::process(float sampleRate, int numSamples, float* outputBuffer) {
             currentStep = (currentStep + 1) % NumSteps;
 
             // Trigger synths for current step
-            for (int t = 0; t < NumTracks; ++t) {
+            for (size_t t = 0; t < grid.size(); ++t) {
                 if (grid[t][currentStep] && synths[t]) {
                     synths[t]->trigger();
                 }
@@ -103,7 +125,7 @@ void Sequencer::process(float sampleRate, int numSamples, float* outputBuffer) {
         }
 
         // Process synths and mix
-        for (int t = 0; t < NumTracks; ++t) {
+        for (size_t t = 0; t < synths.size(); ++t) {
             if (synths[t]) {
                 mixedSample += synths[t]->process(sampleRate);
             }

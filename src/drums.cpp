@@ -6,7 +6,7 @@ namespace bpm {
 
 // --- Kit ---
 Kit::Kit(const std::string& name) : name(name) {
-    params.clear();
+    instruments.clear();
 }
 
 const std::string& Kit::getName() const {
@@ -17,38 +17,41 @@ void Kit::setName(const std::string& newName) {
     name = newName;
 }
 
-void Kit::setParams(DrumChannel channel, const DrumSynthParams& channelParams) {
-    params[channel] = channelParams;
+void Kit::addInstrument(const std::string& name, const DrumSynthParams& params) {
+    instruments.push_back({name, params});
 }
 
-const DrumSynthParams& Kit::getParams(DrumChannel channel) const {
-    auto it = params.find(channel);
-    if (it == params.end()) {
-        throw std::out_of_range("Kit does not have params for this channel: " + channelToString(channel));
+const DrumSynthParams& Kit::getParams(size_t index) const {
+    if (index >= instruments.size()) {
+        throw std::out_of_range("Instrument index out of range");
     }
-    return it->second;
+    return instruments[index].params;
 }
 
-std::map<DrumChannel, DrumSynthParams>& Kit::getAllParams() {
-    return params;
+const std::vector<Kit::Instrument>& Kit::getInstruments() const {
+    return instruments;
+}
+
+const std::vector<Kit::Instrument>& Kit::getAllParams() const {
+    return instruments;
 }
 
 std::shared_ptr<Kit> Kit::createDefaultKit() {
     auto kit = std::make_shared<Kit>("default");
 
-    kit->setParams(DrumChannel::KickLeft,     {"simplekick", 120.0f, 0.5f});
-    kit->setParams(DrumChannel::KickRight,    {"simplekick", 120.0f, 0.5f});
-    kit->setParams(DrumChannel::SnareClosed,  {"simplesnare", 0.0f, 0.2f});
-    kit->setParams(DrumChannel::SnareOpen,    {"simplesnare", 0.0f, 0.4f});
-    kit->setParams(DrumChannel::SnareRim,     {"simplesnare", 0.0f, 0.1f});
-    kit->setParams(DrumChannel::ClosedHat,    {"simplehat", 0.0f, 0.1f});
-    kit->setParams(DrumChannel::OpenHat,      {"simplehat", 0.0f, 0.5f});
-    kit->setParams(DrumChannel::OpeningHat,   {"simplehat", 0.0f, 0.3f});
-    kit->setParams(DrumChannel::Crash,        {"simplecymbal", 0.0f, 1.5f});
-    kit->setParams(DrumChannel::Ride,         {"simplecymbal", 0.0f, 2.0f});
-    kit->setParams(DrumChannel::SmallTom,     {"simpletom", 300.0f, 0.3f});
-    kit->setParams(DrumChannel::MidTom,       {"simpletom", 250.0f, 0.4f});
-    kit->setParams(DrumChannel::HighTom,      {"simpletom", 200.0f, 0.5f});
+    kit->addInstrument("KickLeft",     {"simplekick", 120.0f, 0.5f});
+    kit->addInstrument("KickRight",    {"simplekick", 120.0f, 0.5f});
+    kit->addInstrument("SnareClosed",  {"simplesnare", 0.0f, 0.2f});
+    kit->addInstrument("SnareOpen",    {"simplesnare", 0.0f, 0.4f});
+    kit->addInstrument("SnareRim",     {"simplesnare", 0.0f, 0.1f});
+    kit->addInstrument("ClosedHat",    {"simplehat", 0.0f, 0.1f});
+    kit->addInstrument("OpenHat",      {"simplehat", 0.0f, 0.5f});
+    kit->addInstrument("OpeningHat",   {"simplehat", 0.0f, 0.3f});
+    kit->addInstrument("Crash",        {"simplecymbal", 0.0f, 1.5f});
+    kit->addInstrument("Ride",         {"simplecymbal", 0.0f, 2.0f});
+    kit->addInstrument("SmallTom",     {"simpletom", 300.0f, 0.3f});
+    kit->addInstrument("MidTom",       {"simpletom", 250.0f, 0.4f});
+    kit->addInstrument("HighTom",      {"simpletom", 200.0f, 0.5f});
     
     return kit;
 }

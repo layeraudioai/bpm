@@ -11,42 +11,6 @@ namespace bpm {
 // --- Forward declarations ---
 class DrumSynth;
 
-// --- Enums and Converters ---
-enum class DrumChannel {
-    KickLeft = 0,
-    KickRight,
-    ClosedHat,
-    OpenHat,
-    OpeningHat,
-    Crash,
-    Ride,
-    SmallTom,
-    MidTom,
-    HighTom,
-    SnareClosed,
-    SnareOpen,
-    SnareRim,
-    Count
-};
-
-inline std::string channelToString(DrumChannel channel) {
-    switch (channel) {
-        case DrumChannel::KickLeft: return "Kick Left";
-        case DrumChannel::KickRight: return "Kick Right";
-        case DrumChannel::ClosedHat: return "Closed Hat";
-        case DrumChannel::OpenHat: return "Open Hat";
-        case DrumChannel::OpeningHat: return "Opening Hat";
-        case DrumChannel::Crash: return "Crash";
-        case DrumChannel::Ride: return "Ride";
-        case DrumChannel::SmallTom: return "Small Tom";
-        case DrumChannel::MidTom: return "Mid Tom";
-        case DrumChannel::HighTom: return "High Tom";
-        case DrumChannel::SnareClosed: return "Snare Closed";
-        case DrumChannel::SnareOpen: return "Snare Open";
-        case DrumChannel::SnareRim: return "Snare Rim";
-        default: return "Unknown";
-    }
-}
 
 // --- Kit and Synth Parameters ---
 struct DrumSynthParams {
@@ -57,21 +21,28 @@ struct DrumSynthParams {
 
 class Kit {
 public:
+    struct Instrument {
+        std::string name;
+        DrumSynthParams params;
+        std::string ToString() const { return name; }
+    };
+
     Kit(const std::string& name = "default");
 
     const std::string& getName() const;
     void setName(const std::string& newName);
 
-    void setParams(DrumChannel channel, const DrumSynthParams& params);
-    const DrumSynthParams& getParams(DrumChannel channel) const;
-    std::map<DrumChannel, DrumSynthParams>& getAllParams();
+    void addInstrument(const std::string& name, const DrumSynthParams& params);
+    const DrumSynthParams& getParams(size_t index) const;
+    const std::vector<Instrument>& getInstruments() const;
+    const std::vector<Instrument>& getAllParams() const;
 
     static std::shared_ptr<Kit> createDefaultKit();
     static std::unique_ptr<DrumSynth> createSynth(const DrumSynthParams& params);
 
 private:
     std::string name;
-    std::map<DrumChannel, DrumSynthParams> params;
+    std::vector<Instrument> instruments;
 };
 
 // --- Drum Synths ---
