@@ -22,12 +22,12 @@ std::shared_ptr<Kit> createRandomKit() {
 
     kit->setParams(DrumChannel::KickLeft,     {"simplekick", randFloat(40.0f, 150.0f), randFloat(0.3f, 0.8f)});
     kit->setParams(DrumChannel::KickRight,    {"simplekick", randFloat(40.0f, 150.0f), randFloat(0.3f, 0.8f)});
-    kit->setParams(DrumChannel::SnareClosed,  {"simplesnare", 0.0f, randFloat(0.1f, 0.4f)});
-    kit->setParams(DrumChannel::SnareOpen,    {"simplesnare", 0.0f, randFloat(0.2f, 0.6f)});
+    kit->setParams(DrumChannel::SnareClosed,  {"simplesnare", 0.0f, randFloat(0.1f, 0.3f)});
+    kit->setParams(DrumChannel::SnareOpen,    {"simplesnare", 0.0f, randFloat(0.2f, 0.4f)});
     kit->setParams(DrumChannel::SnareRim,     {"simplesnare", 0.0f, randFloat(0.05f, 0.2f)});
-    kit->setParams(DrumChannel::ClosedHat,    {"simplehat", 0.0f, randFloat(0.05f, 0.15f)});
-    kit->setParams(DrumChannel::OpenHat,      {"simplehat", 0.0f, randFloat(0.3f, 0.8f)});
-    kit->setParams(DrumChannel::OpeningHat,   {"simplehat", 0.0f, randFloat(0.2f, 0.5f)});
+    kit->setParams(DrumChannel::ClosedHat,    {"simplehat", 0.0f, randFloat(0.02f, 0.1f)});
+    kit->setParams(DrumChannel::OpenHat,      {"simplehat", 0.0f, randFloat(0.2f, 0.4f)});
+    kit->setParams(DrumChannel::OpeningHat,   {"simplehat", 0.0f, randFloat(0.15f, 0.3f)});
     kit->setParams(DrumChannel::Crash,        {"simplecymbal", 0.0f, randFloat(1.0f, 2.5f)});
     kit->setParams(DrumChannel::Ride,         {"simplecymbal", 0.0f, randFloat(1.5f, 3.0f)});
     kit->setParams(DrumChannel::SmallTom,     {"simpletom", randFloat(250.0f, 400.0f), randFloat(0.2f, 0.5f)});
