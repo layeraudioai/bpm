@@ -3738,6 +3738,8 @@ See below for some tips on improving performance.
 #ifndef miniaudio_h
 #define miniaudio_h
 
+#if !defined(__GBA__)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -11543,6 +11545,8 @@ MA_API ma_uint64 ma_sound_group_get_time_in_pcm_frames(const ma_sound_group* pGr
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* !defined(__GBA__) */
 #endif  /* miniaudio_h */
 
 

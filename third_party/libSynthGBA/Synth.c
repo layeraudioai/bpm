@@ -3,8 +3,9 @@
 #include "fixed.h"
 #include "gba_regs.h"
 #include "gba_interrupt.h"
-#include <string.h>
-#include <stdlib.h>
+
+// Function attributes for GBA Interrupt Handlers
+#define IWRAM_CODE __attribute__((section(".iwram"), target("arm")))
 
 // Configuration
 #define SAMPLE_RATE 18157
@@ -29,9 +30,14 @@ typedef struct {
 } Channel;
 
 static Channel channels[CHANNEL_COUNT];
-static s8 audio_buffer[2][BUFFER_SIZE];
+static s8 audio_buffer[2][BUFFER_SIZE] __attribute__((aligned(4)));
 static volatile u32 active_buffer = 0;
 static u32 sample_count_lfo = 0;
+
+static inline void ma_memzero(void* dest, u32 size) {
+    u8* d = (u8*)dest;
+    while (size--) *d++ = 0;
+}
 
 // LCG Random for noise
 static u32 rand_state = 12345;
@@ -40,8 +46,8 @@ static inline u8 fast_rand() {
     return (rand_state >> 16) & 0xFF;
 }
 
-static void MixAudio(s8* target, u32 count) {
-    memset(target, 0, count);
+static void IWRAM_CODE MixAudio(s8* target, u32 count) {
+    ma_memzero(target, count);
 
     for (int i = 0; i < CHANNEL_COUNT; i++) {
         Channel* ch = &channels[i];
@@ -104,7 +110,7 @@ static void MixAudio(s8* target, u32 count) {
     }
 }
 
-void Synth_VBlank_Handler(void) {
+void IWRAM_CODE Synth_VBlank_Handler(void) {
     // DMA Transfer for the current buffer (happens automatically via DMA hardware logic, 
     // we just ensure we point to the right data if we were doing manual double buffering 
     // reset, but for circular DMA we usually just let it run. 
@@ -122,8 +128,8 @@ void Synth_VBlank_Handler(void) {
 
 void Synth_Init(void) {
     // 1. Clear State
-    memset(channels, 0, sizeof(channels));
-    memset(audio_buffer, 0, sizeof(audio_buffer));
+    ma_memzero(channels, sizeof(channels));
+    ma_memzero(audio_buffer, sizeof(audio_buffer));
     active_buffer = 0;
 
     // 2. Enable Sound Controller
@@ -132,8 +138,8 @@ void Synth_Init(void) {
     
     // Enable DirectSound A, Full Volume, Timer 0, Reset FIFO
     // (1<<2) = Enable DSA Right, (1<<3) = Enable DSA Left
-    // (1<<8) = FIFO Reset DSA
-    REG_SOUNDCNT_H = 0x0200 | 0x000C | 0x0003; // DSA 100%, Timer 0
+    // (1<<5) = FIFO Reset DSA (0x0020), not 0x0200 (Bit 9 is DSB)
+    REG_SOUNDCNT_H = 0x0020 | 0x000C | 0x0003; // DSA 100%, Timer 0
 
     // 3. Setup Timer 0 for Sampling Rate
     // CYCLES = 16777216 / SAMPLE_RATE
@@ -192,9 +198,7 @@ void Synth_SetNote(u32 ch, u32 note, u32 finetune) {
     channels[ch].frequency = freq;
     
     // Pre-calculate phase increment
-    // Use u64 for intermediate calc to prevent overflow
-    u64 inc = ((u64)freq << FX_BITS) / SAMPLE_RATE;
-    channels[ch].increment = (u32)inc;
+    channels[ch].increment = (freq << FX_BITS) / SAMPLE_RATE;
 }
 
 void Synth_NoteOn(u32 ch) {

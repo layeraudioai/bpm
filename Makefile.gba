@@ -26,8 +26,7 @@ LDFLAGS  := $(ARCH) -specs=gba.specs -L$(LIBGBA)/lib -lgba -lm
 
 # Sources
 # Explicitly list src files to match CMake configuration
-CPP_SRCS := src/main.cpp \
-            src/sequencer.cpp \
+CPP_SRCS := src/sequencer.cpp \
             src/audio_engine.cpp \
             src/drums.cpp \
             src/parser.cpp \
@@ -36,7 +35,8 @@ CPP_SRCS := src/main.cpp \
             src/gba_input.cpp \
             src/gba_display.cpp
 
-C_SRCS   := third_party/libSynthGBA/Synth.c \
+C_SRCS   := src/main.c \
+            third_party/libSynthGBA/Synth.c \
             third_party/libSynthGBA/notes.c
 
 ASM_SRCS :=
