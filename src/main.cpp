@@ -4,6 +4,7 @@
 #include <chrono>
 #include <string>
 #include <vector>
+#include <ctime>
 #include "bpm/sequencer.h"
 #include "bpm/audio_engine.h"
 #include "bpm/parser.h"
@@ -21,6 +22,8 @@ void printHelp() {
 }
 
 int main(int argc, char** argv) {
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+
     auto sequencer = std::make_shared<Sequencer>();
     auto projectManager = std::make_shared<ProjectManager>();
     auto kitManager = std::make_shared<KitManager>();

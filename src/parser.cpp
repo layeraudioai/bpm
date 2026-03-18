@@ -70,6 +70,9 @@ std::shared_ptr<Kit> createRandomKit() {
     kit->addInstrument("SmallTom",     {"simpletom", randFloat(250.0f, 400.0f), randFloat(0.2f, 0.5f), 0.8f, 0.4f});
     kit->addInstrument("MidTom",       {"simpletom", randFloat(150.0f, 300.0f), randFloat(0.3f, 0.6f), 0.8f, 0.5f});
     kit->addInstrument("HighTom",      {"simpletom", randFloat(100.0f, 250.0f), randFloat(0.4f, 0.7f), 0.8f, 0.6f});
+    kit->addInstrument("Bass",         {"simplebeep", 80.0f, 0.4f, 0.8f, 0.5f});
+    kit->addInstrument("Lead",         {"simplebeep", 440.0f, 0.2f, 0.5f, 0.4f});
+    kit->addInstrument("Arp",          {"simplebeep", 880.0f, 0.1f, 0.4f, 0.6f});
 
     return kit;
 }
@@ -339,22 +342,49 @@ void CommandParser::parse(const std::string& input) {
             std::cout << "No beep instruments found." << std::endl;
             return;
         }
-        static const std::vector<int> scale = {0, 2, 4, 5, 7, 9, 11};
+
+        static const std::vector<int> scale = {0, 2, 4, 5, 7, 9, 11}; // Major scale
         int root = rand() % 12;
-        int octave = 3 + (rand() % 3);
+
         for (int channel : beepChannels) {
+            std::string name = instruments[channel].name;
+            std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c){ return std::tolower(c); });
+            
             for (int i = 0; i < sequencer->getNumSteps(); ++i) sequencer->setStep(channel, i, false);
-            int density = 4 + (rand() % 8);
-            for (int i = 0; i < density; ++i) {
-                int step = rand() % sequencer->getNumSteps();
-                int noteIdx = rand() % scale.size();
-                int noteMidi = (octave + 1) * 12 + root + scale[noteIdx];
+            
+            auto setFreq = [&](int noteIdx, int octave) {
+                int noteMidi = (octave + 1) * 12 + root + scale[noteIdx % scale.size()];
                 float freq = 440.0f * std::pow(2.0f, (noteMidi - 69) / 12.0f);
                 auto params = kit->getParams(channel);
                 params.frequency = freq;
                 kit->setParams(channel, params);
                 sequencer->loadKit(kit);
-                sequencer->setStep(channel, step, true);
+            };
+
+            if (name.find("bass") != std::string::npos) {
+                // Bassline: often on 1, 5, 9, 13 or similar
+                int octave = 1 + (rand() % 2);
+                setFreq(0, octave); // Stay on root for now
+                for (int i = 0; i < sequencer->getNumSteps(); i += 4) {
+                    if (rand() % 100 < 80) sequencer->setStep(channel, i, true);
+                }
+            } else if (name.find("arp") != std::string::npos) {
+                // Arpeggio: 8th or 16th notes
+                int octave = 4 + (rand() % 2);
+                int interval = (rand() % 2 == 0) ? 2 : 4;
+                for (int i = 0; i < sequencer->getNumSteps(); i += interval) {
+                    setFreq(rand() % scale.size(), octave);
+                    if (rand() % 100 < 70) sequencer->setStep(channel, i, true);
+                }
+            } else {
+                // Lead/Default: Rhythmic riffs
+                int octave = 3 + (rand() % 2);
+                int density = 4 + (rand() % 12);
+                for (int i = 0; i < density; ++i) {
+                    int step = rand() % sequencer->getNumSteps();
+                    setFreq(rand() % scale.size(), octave);
+                    sequencer->setStep(channel, step, true);
+                }
             }
         }
         return;
@@ -392,19 +422,55 @@ void CommandParser::parse(const std::string& input) {
         }
 
         if (!keepKit) sequencer->loadKit(createRandomKit());
-        while (sequencer->getPatternCount() > 0) sequencer->removePattern(0);
-        for (int i = 0; i < numPatterns; ++i) sequencer->addPattern();
+        
+        // Clear patterns safely: keep at least one and clear it, then add others
+        while (sequencer->getPatternCount() > 1) sequencer->removePattern(0);
+        sequencer->switchPattern(0);
+        sequencer->clear();
+        
+        for (int i = 1; i < numPatterns; ++i) sequencer->addPattern();
         
         for (int p = 0; p < numPatterns; ++p) {
             sequencer->switchPattern(p);
-            sequencer->clear();
+            // sequencer->clear(); // Already clear if new, or cleared above for p=0
             int d = densities[p];
-            for (size_t t = 0; t < sequencer->getKit()->getInstruments().size(); ++t) {
-                for (int step = 0; step < sequencer->getNumSteps(); ++step) {
-                    if (rand() % 100 < d) sequencer->setStep(t, step, true);
+            auto instruments = sequencer->getKit()->getInstruments();
+            
+            for (size_t t = 0; t < instruments.size(); ++t) {
+                std::string name = instruments[t].name;
+                std::string type = instruments[t].params.type;
+                std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c){ return std::tolower(c); });
+
+                if (type == "simplebeep") continue; // Handled by generate melody
+
+                if (name.find("kick") != std::string::npos) {
+                    for (int step = 0; step < sequencer->getNumSteps(); step += 4) {
+                        if (rand() % 100 < (d * 3)) sequencer->setStep(t, step, true);
+                    }
+                } else if (name.find("snare") != std::string::npos) {
+                    for (int step = 4; step < sequencer->getNumSteps(); step += 8) {
+                        if (rand() % 100 < (d * 2)) sequencer->setStep(t, step, true);
+                    }
+                } else if (name.find("hat") != std::string::npos) {
+                    int interval = (d > 20) ? 2 : 4;
+                    for (int step = 0; step < sequencer->getNumSteps(); step += interval) {
+                        if (rand() % 100 < 70) sequencer->setStep(t, step, true);
+                    }
+                } else {
+                    for (int step = 0; step < sequencer->getNumSteps(); ++step) {
+                        if (rand() % 100 < d) sequencer->setStep(t, step, true);
+                    }
                 }
             }
-            parse("generate melody");
+            
+            bool hasBeep = false;
+            for (const auto& inst : instruments) {
+                if (inst.params.type == "simplebeep") {
+                    hasBeep = true;
+                    break;
+                }
+            }
+            if (hasBeep) parse("generate melody");
         }
         
         sequencer->setArrangement(arrangement);
