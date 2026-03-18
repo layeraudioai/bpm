@@ -4,7 +4,7 @@
 
 namespace bpm {
 
-Sequencer::Sequencer() {
+Sequencer::Sequencer() : bpm(120.0f), numSteps(64), currentStep(-1), sampleCounter(0.0f) {
     loadKit(Kit::createDefaultKit());
 }
 
@@ -63,6 +63,8 @@ bool Sequencer::getStep(int channelIndex, int step) const {
 }
 
 void Sequencer::setNumSteps(int newNumSteps) {
+    if (newNumSteps < 1) newNumSteps = 1;
+    if (newNumSteps > 64) newNumSteps = 64;
     numSteps = newNumSteps;
 }
 
@@ -73,6 +75,7 @@ int Sequencer::getNumSteps() const {
 
 void Sequencer::setBPM(float newBpm) {
     std::lock_guard<std::mutex> lock(gridMutex);
+    if (newBpm < 1.0f) newBpm = 1.0f;
     bpm = newBpm;
 }
 
