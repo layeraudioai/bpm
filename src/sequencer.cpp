@@ -31,6 +31,7 @@ void Sequencer::loadKit(std::shared_ptr<Kit> newKit) {
 
     synths.resize(numInstruments);
     for (size_t i = 0; i < numInstruments; ++i) {
+#ifndef __GBA__
         try {
             const auto& params = currentKit->getParams(i);
             synths[i] = Kit::createSynth(params);
@@ -39,6 +40,10 @@ void Sequencer::loadKit(std::shared_ptr<Kit> newKit) {
             std::cerr << "Warning: No params for index " << i << " in kit '" << currentKit->getName() << "'. Using a default kick." << std::endl;
             synths[i] = Kit::createSynth({"simplekick", 120.0f, 0.5f});
         }
+#else
+        const auto& params = currentKit->getParams(i);
+        synths[i] = Kit::createSynth(params);
+#endif
     }
 }
 
