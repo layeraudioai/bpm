@@ -45,29 +45,29 @@ std::shared_ptr<Kit> Sequencer::getKit() const {
 
 void Sequencer::setStep(int channelIndex, int step, bool active) {
     std::lock_guard<std::mutex> lock(gridMutex);
-    if (channelIndex >= 0 && channelIndex < grid.size() && step >= 0 && step < NumSteps) {
-        grid[channelIndex][step] = active;
+    if (channelIndex >= 0 && static_cast<size_t>(channelIndex) < grid.size() && step >= 0 && step < this->numSteps) {
+        if (active) {
+            grid[channelIndex] |= (1ULL << step);
+        } else {
+            grid[channelIndex] &= ~(1ULL << step);
+        }
     }
 }
 
 bool Sequencer::getStep(int channelIndex, int step) const {
     std::lock_guard<std::mutex> lock(gridMutex);
-    if (channelIndex >= 0 && channelIndex < grid.size() && step >= 0 && step < NumSteps) {
-        return grid[channelIndex][step];
+    if (channelIndex >= 0 && static_cast<size_t>(channelIndex) < grid.size() && step >= 0 && step < numSteps) {
+        return (static_cast<uint64_t>(grid[channelIndex]) >> step) & 1;
     }
     return false;
 }
 
 void Sequencer::setNumSteps(int newNumSteps) {
-    if (newNumSteps > NumSteps) {
-        std::cerr << "Error: newNumSteps exceeds maximum of " << NumSteps << ". Ignoring." << std::endl;
-        return;
-    }
-    // No need to resize bitsets, just ignore extra steps in processing
+    numSteps = newNumSteps;
 }
 
 int Sequencer::getNumSteps() const {
-    return NumSteps;
+    return numSteps;
 }
 
 
@@ -84,16 +84,20 @@ float Sequencer::getBPM() const {
 void Sequencer::clear() {
     std::lock_guard<std::mutex> lock(gridMutex);
     for (auto& track : grid) {
-        track.reset();
+        track = 0;
     }
 }
 
 void Sequencer::randomize() {
     std::lock_guard<std::mutex> lock(gridMutex);
     for (size_t t = 0; t < grid.size(); ++t) {
-        for (int s = 0; s < NumSteps; ++s) {
+        for (int s = 0; s < numSteps; ++s) {
             // ~5% chance of a trigger per step per track
-            grid[t][s] = (std::rand() % 100 < 5);
+            if (std::rand() % 100 < 5) {
+                grid[t] |= (1ULL << s);
+            } else {
+                grid[t] &= ~(1ULL << s);
+            }
         }
     }
 }
@@ -114,11 +118,11 @@ void Sequencer::process(float sampleRate, int numSamples, float* outputBuffer) {
         sampleCounter += 1.0f;
         if (sampleCounter >= samplesPerStep) {
             sampleCounter -= samplesPerStep;
-            currentStep = (currentStep + 1) % NumSteps;
+            currentStep = (currentStep + 1) % numSteps;
 
             // Trigger synths for current step
             for (size_t t = 0; t < grid.size(); ++t) {
-                if (grid[t][currentStep] && synths[t]) {
+                if (((static_cast<uint64_t>(grid[t]) >> currentStep) & 1) && synths[t]) {
                     synths[t]->trigger();
                 }
             }

@@ -10,8 +10,6 @@ namespace bpm {
 
 class Sequencer {
 public:
-    static constexpr int NumSteps = 64;
-
     Sequencer();
 
     void loadKit(std::shared_ptr<Kit> newKit);
@@ -28,10 +26,10 @@ public:
     void clear();
     void randomize();
 
-    const std::vector<std::bitset<NumSteps>>& getFullGrid() const { return grid; }
-    void setFullGrid(const std::vector<std::bitset<NumSteps>>& newGrid) { 
+    const std::vector<uint64_t> getFullGrid() const { return grid; }
+    void setFullGrid(const std::vector<uint64_t>& newGrid) { 
         std::lock_guard<std::mutex> lock(gridMutex);
-        grid = newGrid; 
+        grid = newGrid;
     }
 
     // To be called by audio callback
@@ -40,7 +38,8 @@ public:
     int getCurrentStep() const { return currentStep; }
 
 private:
-    std::vector<std::bitset<NumSteps>> grid;
+    int numSteps = 64;
+    std::vector<uint64_t> grid;
     std::vector<std::unique_ptr<DrumSynth>> synths;
     std::shared_ptr<Kit> currentKit;
     mutable std::mutex gridMutex;
@@ -49,7 +48,6 @@ private:
     float samplesPerStep = 0.0f;
     float sampleCounter = 0.0f;
     int currentStep = 0;
-
     void updateTiming(float sampleRate);
 };
 

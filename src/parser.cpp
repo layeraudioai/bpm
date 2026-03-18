@@ -17,7 +17,7 @@ std::shared_ptr<Kit> createRandomKit() {
     auto kit = std::make_shared<Kit>("random");
 
     auto randFloat = [](float min, float max) {
-        return min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (max - min)));
+        return min + (max - min) * (static_cast<float>(rand()) / static_cast<float>(RAND_MAX));
     };
 
     kit->addInstrument("KickLeft",     {"simplekick", randFloat(40.0f, 150.0f), randFloat(0.3f, 0.8f)});
