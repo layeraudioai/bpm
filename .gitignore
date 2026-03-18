@@ -9,4 +9,6 @@ state.sqlite
 twistd.log
 twistd.pid
 gitpoller-workdir
-GBA
+build_gba
+bpm.elf
+bpm.gba
