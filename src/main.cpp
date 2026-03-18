@@ -1,4 +1,3 @@
-#include <iostream>
 #include <memory>
 #include <thread>
 #include <chrono>
@@ -14,8 +13,12 @@
 #ifdef __GBA__
 #include "bpm/gba_input.h"
 #include "bpm/gba_display.h"
-#include <gba_input.h>
 #include <gba_systemcalls.h>
+#include <gba_input.h>
+#include <gba_interrupt.h>
+#endif
+#ifndef __GBA__
+#include <iostream>
 #endif
 
 using namespace bpm;
@@ -38,6 +41,8 @@ int main(int argc, char** argv) {
     auto kitManager = std::make_shared<KitManager>();
     
 #ifdef __GBA__
+    irqInit();
+    irqEnable(IRQ_VBLANK);
     init_gba_display();
     GBAInput gba_input;
     gba_input.Init();

@@ -1,8 +1,10 @@
 #include "bpm/parser.h"
 #include <algorithm>
+#ifndef __GBA__
 #include <sstream>
-#include <vector>
 #include <iostream>
+#endif
+#include <vector>
 #include <cstring>
 #include <cstdlib>
 #include <cmath>
@@ -115,9 +117,19 @@ int CommandParser::stringToChannelIndex(const std::string& s) {
 void CommandParser::parse(const std::string& input) {
     std::string s = input;
     toLower(s);
-    std::stringstream ss(s);
     std::string command;
+#ifndef __GBA__
+    std::stringstream ss(s);
     ss >> command;
+#else
+    // Basic GBA parsing (simplified to avoid stringstream)
+    size_t space_pos = s.find(' ');
+    if (space_pos != std::string::npos) {
+        command = s.substr(0, space_pos);
+    } else {
+        command = s;
+    }
+#endif
 
     if (command.empty()) return;
 
@@ -128,7 +140,9 @@ void CommandParser::parse(const std::string& input) {
     
     if (sequencer->isReadOnly() && isMutation) {
         if (s.find("set song_mode") == std::string::npos && command != "switch" && command != "pattern") {
+#ifndef __GBA__
             std::cout << "Song is READONLY. Mutation commands disabled." << std::endl;
+#endif
             return;
         }
     }
@@ -136,6 +150,7 @@ void CommandParser::parse(const std::string& input) {
     // Project/Style/Structure/Song commands
     if (command == "save" || command == "load" || command == "export") {
         std::string object_type;
+#ifndef __GBA__
         ss >> object_type;
         std::string name;
         ss >> name;
@@ -169,9 +184,11 @@ void CommandParser::parse(const std::string& input) {
             }
             return;
         }
+#endif
     }
     
     if (s == "list projects") {
+#ifndef __GBA__
         auto files = projectManager->listFiles(".bpm");
         std::cout << "Saved projects:" << std::endl;
         for (const auto& f : files) std::cout << "  - " << f << std::endl;
@@ -193,46 +210,57 @@ void CommandParser::parse(const std::string& input) {
         auto files = projectManager->listFiles(".song");
         std::cout << "Exported songs (ReadOnly):" << std::endl;
         for (const auto& f : files) std::cout << "  - " << f << std::endl;
+#endif
         return;
     }
 
     // Kit commands
     if (command == "loadkit") {
+#ifndef __GBA__
         std::string name;
         ss >> name;
         auto kit = kitManager->load(name);
         if (kit) sequencer->loadKit(kit);
+#endif
         return;
     }
 
     if (command == "savekit") {
+#ifndef __GBA__
         std::string name;
         ss >> name;
         auto currentKit = sequencer->getKit();
         currentKit->setName(name);
         kitManager->save(currentKit);
+#endif
         return;
     }
 
     if (command == "kits" || command == "listkits") {
+#ifndef __GBA__
         auto kits = kitManager->listKits();
         if (kits.empty()) std::cout << "No kits found." << std::endl;
         else {
             std::cout << "Available kits:" << std::endl;
             for (const auto& k : kits) std::cout << "  - " << k << std::endl;
         }
+#endif
         return;
     }
 
     if (command == "newkit") {
         sequencer->loadKit(Kit::createDefaultKit());
+#ifndef __GBA__
         std::cout << "Loaded new default kit." << std::endl;
+#endif
         return;
     }
 
     if (s == "new random kit") {
         sequencer->loadKit(createRandomKit());
+#ifndef __GBA__
         std::cout << "Generated new random kit." << std::endl;
+#endif
         return;
     }
 
@@ -240,11 +268,14 @@ void CommandParser::parse(const std::string& input) {
         auto kit = sequencer->getKit();
         kit->clearInstruments();
         sequencer->loadKit(kit);
+#ifndef __GBA__
         std::cout << "Kit cleared." << std::endl;
+#endif
         return;
     }
 
     if (command == "add") {
+#ifndef __GBA__
         std::string type, name;
         ss >> type >> name;
         
@@ -267,10 +298,12 @@ void CommandParser::parse(const std::string& input) {
         } else {
             std::cout << "Invalid instrument type." << std::endl;
         }
+#endif
         return;
     }
 
     if (command == "switch" || command == "pattern") {
+#ifndef __GBA__
         std::string sub;
         if (command == "pattern") {
             if (ss >> sub) {
@@ -305,9 +338,11 @@ void CommandParser::parse(const std::string& input) {
                 }
             }
         }
+#endif
     }
 
     if (s == "list patterns" || s == "patterns") {
+#ifndef __GBA__
     list_patterns:
         std::cout << "Patterns (" << sequencer->getPatternCount() << "):" << std::endl;
         for (int i = 0; i < sequencer->getPatternCount(); ++i) {
@@ -322,10 +357,12 @@ void CommandParser::parse(const std::string& input) {
             }
             std::cout << std::endl;
         }
+#endif
         return;
     }
 
     if (command == "remove") {
+#ifndef __GBA__
         std::string type;
         ss >> type;
         if (type == "pattern") {
@@ -336,12 +373,15 @@ void CommandParser::parse(const std::string& input) {
                 return;
             }
         }
+#endif
     }
 
     // Sequencer commands
     if (s == "new random beat" || s == "randomize" || s == "shuffle") {
         sequencer->randomize();
+#ifndef __GBA__
         std::cout << "Pattern randomized." << std::endl;
+#endif
         return;
     }
 
@@ -353,7 +393,9 @@ void CommandParser::parse(const std::string& input) {
             if (instruments[i].params.type == "simplebeep") beepChannels.push_back((int)i);
         }
         if (beepChannels.empty()) {
+#ifndef __GBA__
             std::cout << "No beep instruments found." << std::endl;
+#endif
             return;
         }
 
@@ -490,14 +532,18 @@ void CommandParser::parse(const std::string& input) {
         sequencer->setArrangement(arrangement);
         sequencer->switchPattern(arrangement[0]);
         sequencer->setSongMode(true);
+        #ifndef __GBA__
         std::cout << "Generated " << styleName << " (" << arrangement.size() << " sections)." << std::endl;
+        #endif
         return;
     }
 
     if (s == "generate random arrangement" || s == "new random arrangement") {
         int numPatterns = sequencer->getPatternCount();
         if (numPatterns == 0) {
+            #ifndef __GBA__
             std::cout << "No patterns available to arrange." << std::endl;
+            #endif
             return;
         }
 
@@ -526,13 +572,18 @@ void CommandParser::parse(const std::string& input) {
         }
 
         sequencer->setArrangement(arrangement);
+        sequencer->switchPattern(arrangement[0]);
+        #ifndef __GBA__
         std::cout << "Generated random '" << styleName << "' arrangement using " << numPatterns << " patterns." << std::endl;
+        #endif
         return;
     }
 
     if (s == "clear" || s == "empty" || s == "reset") {
         sequencer->clear();
+        #ifndef __GBA__
         std::cout << "Pattern cleared." << std::endl;
+        #endif
         return;
     }
 
@@ -550,6 +601,7 @@ void CommandParser::parse(const std::string& input) {
     }
     
     if (command == "set" || command == "set_to") {
+        #ifndef __GBA__
         std::string first;
         ss >> first;
         if (first == "bpm" || first == "tempo") {
@@ -602,13 +654,11 @@ void CommandParser::parse(const std::string& input) {
                     float value = 0.0f;
                     if ((param == "freq" || param == "frequency") && std::isalpha(valueStr[0])) value = noteToFrequency(valueStr);
                     else {
-#ifndef __GBA__
                         try { value = std::stof(valueStr); } catch (...) { return; }
-#else
                         char* end;
                         value = strtof(valueStr.c_str(), &end);
                         if (*end != '\0' && !isspace(*end)) return;
-#endif
+
                     }
                     if (param == "freq" || param == "frequency") params.frequency = value;
                     else if (param == "decay") params.decay = value;
@@ -620,11 +670,13 @@ void CommandParser::parse(const std::string& input) {
                 }
             }
         }
+        #endif
         return;
     }
     
     int channel = stringToChannelIndex(command);
     if (channel != -1) {
+        #ifndef __GBA__
         std::string on;
         ss >> on;
         if (on == "on") {
@@ -636,13 +688,11 @@ void CommandParser::parse(const std::string& input) {
                     for (int i = 0; i < sequencer->getNumSteps(); i += interval) sequencer->setStep(channel, i, true);
                 }
             } else {
-#ifndef __GBA__
                 try {
                     int step = std::stoi(next);
                     sequencer->setStep(channel, step - 1, true);
                     while (ss >> step) sequencer->setStep(channel, step - 1, true);
                 } catch (...) {}
-#else
                 int step = atoi(next.c_str());
                 sequencer->setStep(channel, step - 1, true);
                 while (ss >> step) sequencer->setStep(channel, step - 1, true);
@@ -650,5 +700,3 @@ void CommandParser::parse(const std::string& input) {
             }
         }
     }
-}
-} // namespace bpm

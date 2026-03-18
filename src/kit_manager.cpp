@@ -1,20 +1,25 @@
 #include "bpm/kit_manager.h"
+#ifndef __GBA__
 #include <fstream>
 #include <iostream>
+#endif
 #include <algorithm>
 #include <cctype>
 
 namespace bpm {
 
 KitManager::KitManager(const std::string& kitsDir) : kitsPath(kitsDir) {
+#ifndef __GBA__
     if (!std::filesystem::exists(kitsPath)) {
         std::filesystem::create_directory(kitsPath);
     }
+#endif
 }
 
 bool KitManager::save(std::shared_ptr<Kit> kit) {
     if (!kit) return false;
 
+#ifndef __GBA__
     std::filesystem::path filePath = kitsPath / (kit->getName() + ".kit");
     std::ofstream file(filePath);
     if (!file.is_open()) {
@@ -39,9 +44,13 @@ bool KitManager::save(std::shared_ptr<Kit> kit) {
     
     std::cout << "Kit '" << kit->getName() << "' saved to " << filePath << std::endl;
     return true;
+#else
+    return false;
+#endif
 }
 
 std::shared_ptr<Kit> KitManager::load(const std::string& name) {
+#ifndef __GBA__
     std::filesystem::path filePath = kitsPath / (name + ".kit");
     if (!std::filesystem::exists(filePath)) {
         std::cerr << "Error: Kit file not found: " << filePath << std::endl;
@@ -98,15 +107,20 @@ std::shared_ptr<Kit> KitManager::load(const std::string& name) {
 
     std::cout << "Kit '" << name << "' loaded." << std::endl;
     return kit;
+#else
+    return nullptr;
+#endif
 }
 
 std::vector<std::string> KitManager::listKits() {
     std::vector<std::string> kits;
+#ifndef __GBA__
     for (const auto& entry : std::filesystem::directory_iterator(kitsPath)) {
         if (entry.is_regular_file() && entry.path().extension() == ".kit") {
             kits.push_back(entry.path().stem().string());
         }
     }
+#endif
     return kits;
 }
 

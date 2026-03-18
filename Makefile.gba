@@ -1,73 +1,105 @@
-# Tools
-# Set DEVKITPRO if not set in environment (default path for many installs)
-DEVKITPRO ?= /opt/devkitpro
-DEVKITARM ?= $(DEVKITPRO)/devkitARM
-LIBGBA    ?= $(DEVKITPRO)/libgba
+# Makefile.gba for bpm.mb.gba (GBA Multiboot)
 
-PREFIX  := arm-none-eabi-
-CC      := $(DEVKITARM)/bin/$(PREFIX)gcc
-CXX     := $(DEVKITARM)/bin/$(PREFIX)g++
-OBJCOPY := $(DEVKITARM)/bin/$(PREFIX)objcopy
-GBAFIX  := $(DEVKITPRO)/tools/bin/gbafix
+ifeq ($(strip $(DEVKITARM)),)
+$(error "Please set DEVKITARM in your environment. export DEVKITARM=<path to>devkitARM")
+endif
 
-# Project
-TARGET    := bpm
-BUILD_DIR := build_gba
+ifeq ($(strip $(DEVKITPRO)),)
+$(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>devkitPro")
+endif
 
-# Flags
-ARCH     := -mthumb -mthumb-interwork -march=armv4t -mtune=arm7tdmi
-# Note: -D__GBA__ is important for your code to select the correct paths
-COMMON   := $(ARCH) -O3 -Wall -ffast-math -mlong-calls -D__GBA__ -DUSE_GBA_SYNTH
-INCLUDES := -Iinclude -Ithird_party/libSynthGBA -Ithird_party/synthGBA/include -I$(LIBGBA)/include
+include $(DEVKITARM)/base_tools
 
-CFLAGS   := $(COMMON) $(INCLUDES) -std=gnu11
-CXXFLAGS := $(COMMON) $(INCLUDES) -std=gnu++17 -fno-rtti -fno-exceptions
-LDFLAGS  := $(ARCH) -specs=gba.specs -L$(LIBGBA)/lib -lgba -lm
+# Target name (extension .gba added by rules)
+TARGET      := bpm.mb
 
-# Sources
-# Explicitly list src files to match CMake configuration
-CPP_SRCS := src/sequencer.cpp \
-            src/audio_engine.cpp \
-            src/drums.cpp \
-            src/parser.cpp \
-            src/project_manager.cpp \
-            src/kit_manager.cpp \
-            src/gba_input.cpp \
-            src/gba_display.cpp
+# Output dir
+BUILD       := build_gba
 
-C_SRCS   := src/main.c \
-            third_party/libSynthGBA/Synth.c \
-            third_party/libSynthGBA/notes.c
+# Source paths
+SRCDIR      := src
+THIRDPARTY  := third_party/synthGBA
 
-ASM_SRCS :=
+LIBGBA      := $(DEVKITPRO)/libgba
 
-OBJS := $(CPP_SRCS:%.cpp=$(BUILD_DIR)/%.o) \
-        $(C_SRCS:%.c=$(BUILD_DIR)/%.o) \
-        $(ASM_SRCS:%.s=$(BUILD_DIR)/%.o)
+# Include flags
+INCLUDES    := -Iinclude -Ithird_party -Ithird_party/synthGBA -I$(LIBGBA)/include
+
+# Source files (explicitly listed to match CMakeLists.txt)
+CPPFILES    := src/main.cpp \
+               src/sequencer.cpp \
+               src/audio_engine.cpp \
+               src/drums.cpp \
+               src/parser.cpp \
+               src/project_manager.cpp \
+               src/kit_manager.cpp \
+               src/gba_input.cpp \
+               src/gba_display.cpp
+
+# Glob third_party sources
+CFILES      := $(wildcard $(THIRDPARTY)/*.c) $(wildcard $(THIRDPARTY)/libSynthGBA/*.c) $(wildcard $(THIRDPARTY)/libSynthGBA/source/*.c)
+SFILES      :=
+SFILES_UPPER :=
+
+# Object files generation
+OFILES      := $(CPPFILES:%.cpp=$(BUILD)/%.o) \
+               $(CFILES:%.c=$(BUILD)/%.o) \
+               $(SFILES:%.s=$(BUILD)/%.o) \
+               $(SFILES_UPPER:%.S=$(BUILD)/%.o)
+
+# Compiler flags
+# Multiboot images must typically fit in 256KB EWRAM
+ARCH        := -mthumb -mthumb-interwork
+CFLAGS      := -g -Wall -O2 \
+               -mcpu=arm7tdmi -mtune=arm7tdmi \
+               -ffast-math \
+               $(ARCH) \
+               -D__GBA__ -DUSE_GBA_SYNTH \
+               -ffunction-sections -fdata-sections
+
+CXXFLAGS    := $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++17
+
+ASFLAGS     := -g $(ARCH)
+
+# Linker flags: use gba_mb.specs for multiboot/RAM linking
+LDFLAGS     := -g $(ARCH) -Wl,-Map,$(BUILD)/$(TARGET).map -Wl,--gc-sections -specs=gba_mb.specs -L$(LIBGBA)/lib
+
+LIBS        := -lgba
 
 .PHONY: all clean
 
 all: $(TARGET).gba
 
 $(TARGET).gba: $(TARGET).elf
-	$(OBJCOPY) -O binary $< $@
-	$(GBAFIX) $@
+	@echo "  OBJCOPY $@"
+	@$(OBJCOPY) -O binary $< $@
+	@echo "  GBAFIX  $@"
+	@gbafix $@
 
-$(TARGET).elf: $(OBJS)
-	@mkdir -p $(@D)
-	$(CXX) $^ $(LDFLAGS) -o $@
+$(TARGET).elf: $(OFILES)
+	@echo "  LINK    $@"
+	@$(CXX) $(LDFLAGS) -o $@ $(OFILES) $(LIBS)
 
-$(BUILD_DIR)/%.o: %.cpp
-	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(BUILD)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	@echo "  CXX     $<"
+	@$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
-$(BUILD_DIR)/%.o: %.c
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/%.o: %.c
+	@mkdir -p $(dir $@)
+	@echo "  CC      $<"
+	@$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-$(BUILD_DIR)/%.o: %.s
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/%.o: %.s
+	@mkdir -p $(dir $@)
+	@echo "  AS      $<"
+	@$(CC) $(ASFLAGS) $(INCLUDES) -c $< -o $@
+
+$(BUILD)/%.o: %.S
+	@mkdir -p $(dir $@)
+	@echo "  AS      $<"
+	@$(CC) $(ASFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET).elf $(TARGET).gba
+	@echo "  CLEAN"
+	@rm -rf $(BUILD) $(TARGET).elf $(TARGET).gba $(TARGET).map

@@ -1,5 +1,7 @@
 #include "bpm/sequencer.h"
+#ifndef __GBA__
 #include <iostream>
+#endif
 #include <stdexcept>
 
 namespace bpm {
@@ -11,7 +13,9 @@ Sequencer::Sequencer() : numSteps(64), currentPatternIndex(0), arrangementIndex(
 
 void Sequencer::loadKit(std::shared_ptr<Kit> newKit) {
     if (!newKit) {
+#ifndef __GBA__
         std::cerr << "Error: tried to load a null kit. Loading default kit instead." << std::endl;
+#endif
         currentKit = Kit::createDefaultKit();
     } else {
         currentKit = newKit;

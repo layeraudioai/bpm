@@ -55,13 +55,15 @@ void AudioEngine::audioCallback(ma_device* pDevice, void* pOutput, const void* p
 } // namespace bpm
 #else
 #include "bpm/audio_engine.h"
-#include "Synth.h"
+extern "C" {
+#include "libSynthGBA/Synth.h"
+}
 
 namespace bpm {
 
 AudioEngine::AudioEngine(std::shared_ptr<Sequencer> sequencer)
     : sequencer(sequencer) {
-    Synth_Init();
+    // Synth_Init();
     running = false;
 }
 

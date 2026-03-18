@@ -1,20 +1,25 @@
 #include "bpm/project_manager.h"
+#ifndef __GBA__
 #include <fstream>
 #include <iostream>
 #include <algorithm>
 #include <sstream>
+#endif
 
 namespace bpm {
 
 ProjectManager::ProjectManager(const std::string& projectsDir) {
+#ifndef __GBA__
     projectsPath = std::filesystem::current_path() / projectsDir;
     if (!std::filesystem::exists(projectsPath)) {
         std::filesystem::create_directory(projectsPath);
     }
+#endif
 }
 
 // Helper to save kit data to stream
 void saveKitToStream(std::ostream& os, std::shared_ptr<Kit> kit) {
+#ifndef __GBA__
     if (!kit) return;
     os << "[kit]\n";
     os << "name=" << kit->getName() << "\n";
@@ -25,10 +30,12 @@ void saveKitToStream(std::ostream& os, std::shared_ptr<Kit> kit) {
            << inst.params.frequency << "," << inst.params.decay << ","
            << inst.params.gain << "," << inst.params.pan << "\n";
     }
+#endif
 }
 
 // Helper to load kit data from stream
 void loadKitFromStream(std::istream& is, Sequencer& sequencer) {
+#ifndef __GBA__
     std::string line;
     if (!std::getline(is, line) || line != "[kit]") return;
     
@@ -61,10 +68,12 @@ void loadKitFromStream(std::istream& is, Sequencer& sequencer) {
         kit->addInstrument(name, p);
     }
     sequencer.loadKit(kit);
+#endif
 }
 
 // Helper to save arrangement
 void saveArrangementToStream(std::ostream& os, const Sequencer& sequencer) {
+#ifndef __GBA__
     const auto& arr = sequencer.getArrangement();
     os << "[arrangement]\n";
     os << arr.size() << "\n";
@@ -72,10 +81,12 @@ void saveArrangementToStream(std::ostream& os, const Sequencer& sequencer) {
         os << arr[i] << (i == arr.size() - 1 ? "" : ",");
     }
     os << "\n";
+#endif
 }
 
 // Helper to load arrangement
 void loadArrangementFromStream(std::istream& is, Sequencer& sequencer) {
+#ifndef __GBA__
     std::string line;
     if (!std::getline(is, line) || line != "[arrangement]") return;
     
@@ -91,10 +102,12 @@ void loadArrangementFromStream(std::istream& is, Sequencer& sequencer) {
         }
     }
     sequencer.setArrangement(arr);
+#endif
 }
 
 // Helper to save patterns
 void savePatternsToStream(std::ostream& os, const Sequencer& sequencer) {
+#ifndef __GBA__
     const auto& allPatterns = sequencer.getAllPatterns();
     os << "[patterns]\n";
     os << allPatterns.size() << "\n";
@@ -107,10 +120,12 @@ void savePatternsToStream(std::ostream& os, const Sequencer& sequencer) {
             os << "\n";
         }
     }
+#endif
 }
 
 // Helper to load patterns
 void loadPatternsFromStream(std::istream& is, Sequencer& sequencer) {
+#ifndef __GBA__
     std::string line;
     if (!std::getline(is, line) || line != "[patterns]") return;
     
@@ -132,9 +147,11 @@ void loadPatternsFromStream(std::istream& is, Sequencer& sequencer) {
         allPatterns.push_back(grid);
     }
     sequencer.setAllPatterns(allPatterns);
+#endif
 }
 
 bool ProjectManager::save(const std::string& name, const Sequencer& sequencer) {
+#ifndef __GBA__
     std::filesystem::path filePath = projectsPath / (name + ".bpm");
     std::ofstream ofs(filePath);
     if (!ofs.is_open()) return false;
@@ -144,9 +161,13 @@ bool ProjectManager::save(const std::string& name, const Sequencer& sequencer) {
     saveArrangementToStream(ofs, sequencer);
     savePatternsToStream(ofs, sequencer);
     return true;
+#else
+    return false;
+#endif
 }
 
 bool ProjectManager::load(const std::string& name, Sequencer& sequencer) {
+#ifndef __GBA__
     std::filesystem::path filePath = projectsPath / (name + ".bpm");
     if (!std::filesystem::exists(filePath)) return false;
     std::ifstream ifs(filePath);
@@ -161,9 +182,13 @@ bool ProjectManager::load(const std::string& name, Sequencer& sequencer) {
     loadArrangementFromStream(ifs, sequencer);
     loadPatternsFromStream(ifs, sequencer);
     return true;
+#else
+    return false;
+#endif
 }
 
 bool ProjectManager::saveStyle(const std::string& name, const Sequencer& sequencer) {
+#ifndef __GBA__
     std::filesystem::path filePath = projectsPath / (name + ".style");
     std::ofstream ofs(filePath);
     if (!ofs.is_open()) return false;
@@ -171,9 +196,13 @@ bool ProjectManager::saveStyle(const std::string& name, const Sequencer& sequenc
     saveArrangementToStream(ofs, sequencer);
     savePatternsToStream(ofs, sequencer);
     return true;
+#else
+    return false;
+#endif
 }
 
 bool ProjectManager::loadStyle(const std::string& name, Sequencer& sequencer) {
+#ifndef __GBA__
     std::filesystem::path filePath = projectsPath / (name + ".style");
     if (!std::filesystem::exists(filePath)) return false;
     std::ifstream ifs(filePath);
@@ -182,18 +211,26 @@ bool ProjectManager::loadStyle(const std::string& name, Sequencer& sequencer) {
     loadArrangementFromStream(ifs, sequencer);
     loadPatternsFromStream(ifs, sequencer);
     return true;
+#else
+    return false;
+#endif
 }
 
 bool ProjectManager::saveStructure(const std::string& name, const Sequencer& sequencer) {
+#ifndef __GBA__
     std::filesystem::path filePath = projectsPath / (name + ".structure");
     std::ofstream ofs(filePath);
     if (!ofs.is_open()) return false;
 
     saveArrangementToStream(ofs, sequencer);
     return true;
+#else
+    return false;
+#endif
 }
 
 bool ProjectManager::loadStructure(const std::string& name, Sequencer& sequencer) {
+#ifndef __GBA__
     std::filesystem::path filePath = projectsPath / (name + ".structure");
     if (!std::filesystem::exists(filePath)) return false;
     std::ifstream ifs(filePath);
@@ -201,9 +238,13 @@ bool ProjectManager::loadStructure(const std::string& name, Sequencer& sequencer
 
     loadArrangementFromStream(ifs, sequencer);
     return true;
+#else
+    return false;
+#endif
 }
 
 bool ProjectManager::exportSong(const std::string& name, const Sequencer& sequencer) {
+#ifndef __GBA__
     std::filesystem::path filePath = projectsPath / (name + ".song");
     std::ofstream ofs(filePath);
     if (!ofs.is_open()) return false;
@@ -214,9 +255,13 @@ bool ProjectManager::exportSong(const std::string& name, const Sequencer& sequen
     saveArrangementToStream(ofs, sequencer);
     savePatternsToStream(ofs, sequencer);
     return true;
+#else
+    return false;
+#endif
 }
 
 bool ProjectManager::loadSong(const std::string& name, Sequencer& sequencer) {
+#ifndef __GBA__
     std::filesystem::path filePath = projectsPath / (name + ".song");
     if (!std::filesystem::exists(filePath)) return false;
     std::ifstream ifs(filePath);
@@ -233,15 +278,20 @@ bool ProjectManager::loadSong(const std::string& name, Sequencer& sequencer) {
     loadArrangementFromStream(ifs, sequencer);
     loadPatternsFromStream(ifs, sequencer);
     return true;
+#else
+    return false;
+#endif
 }
 
 std::vector<std::string> ProjectManager::listFiles(const std::string& extension) {
     std::vector<std::string> files;
+#ifndef __GBA__
     for (const auto& entry : std::filesystem::directory_iterator(projectsPath)) {
         if (entry.is_regular_file() && entry.path().extension() == extension) {
             files.push_back(entry.path().stem().string());
         }
     }
+#endif
     return files;
 }
 
