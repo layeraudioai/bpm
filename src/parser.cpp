@@ -35,11 +35,19 @@ float noteToFrequency(const std::string& note) {
     if (noteOffsets.find(name) == noteOffsets.end()) return 0.0f;
     
     int octave = 4;
+#ifndef __GBA__
     try {
         if (!octaveStr.empty()) octave = std::stoi(octaveStr);
     } catch (...) {
         return 0.0f;
     }
+#else
+    if (!octaveStr.empty()) {
+        char* end;
+        octave = strtol(octaveStr.c_str(), &end, 10);
+        if (*end != '\0') return 0.0f; // Not a valid integer
+    }
+#endif
 
     int midiNote = (octave + 1) * 12 + noteOffsets.at(name);
     return 440.0f * std::pow(2.0f, (midiNote - 69) / 12.0f);
@@ -272,12 +280,18 @@ void CommandParser::parse(const std::string& input) {
                     return;
                 } else if (sub == "list") goto list_patterns;
                 else {
+#ifndef __GBA__
                     try {
                         int index = std::stoi(sub);
                         sequencer->switchPattern(index);
                         std::cout << "Switched to pattern " << index << std::endl;
                         return;
                     } catch (...) {}
+#else
+                    int index = atoi(sub.c_str());
+                    sequencer->switchPattern(index);
+                    return;
+#endif
                 }
             } else goto list_patterns;
         } else {
@@ -587,7 +601,15 @@ void CommandParser::parse(const std::string& input) {
                     auto params = kit->getParams(channel);
                     float value = 0.0f;
                     if ((param == "freq" || param == "frequency") && std::isalpha(valueStr[0])) value = noteToFrequency(valueStr);
-                    else try { value = std::stof(valueStr); } catch (...) { return; }
+                    else {
+#ifndef __GBA__
+                        try { value = std::stof(valueStr); } catch (...) { return; }
+#else
+                        char* end;
+                        value = strtof(valueStr.c_str(), &end);
+                        if (*end != '\0' && !isspace(*end)) return;
+#endif
+                    }
                     if (param == "freq" || param == "frequency") params.frequency = value;
                     else if (param == "decay") params.decay = value;
                     else if (param == "gain" || param == "vol" || param == "volume") params.gain = value;
@@ -614,11 +636,17 @@ void CommandParser::parse(const std::string& input) {
                     for (int i = 0; i < sequencer->getNumSteps(); i += interval) sequencer->setStep(channel, i, true);
                 }
             } else {
+#ifndef __GBA__
                 try {
                     int step = std::stoi(next);
                     sequencer->setStep(channel, step - 1, true);
                     while (ss >> step) sequencer->setStep(channel, step - 1, true);
                 } catch (...) {}
+#else
+                int step = atoi(next.c_str());
+                sequencer->setStep(channel, step - 1, true);
+                while (ss >> step) sequencer->setStep(channel, step - 1, true);
+#endif
             }
         }
     }

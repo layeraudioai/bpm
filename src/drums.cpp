@@ -23,14 +23,23 @@ void Kit::addInstrument(const std::string& name, const DrumSynthParams& params) 
 
 void Kit::setParams(size_t index, const DrumSynthParams& params) {
     if (index >= instruments.size()) {
+#ifndef __GBA__
         throw std::out_of_range("Instrument index out of range");
+#else
+        return;
+#endif
     }
     instruments[index].params = params;
 }
 
 const DrumSynthParams& Kit::getParams(size_t index) const {
     if (index >= instruments.size()) {
+#ifndef __GBA__
         throw std::out_of_range("Instrument index out of range");
+#else
+        static DrumSynthParams defaultParams;
+        return defaultParams;
+#endif
     }
     return instruments[index].params;
 }

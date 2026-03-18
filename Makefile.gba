@@ -18,11 +18,11 @@ BUILD_DIR := build_gba
 ARCH     := -mthumb -mthumb-interwork -march=armv4t -mtune=arm7tdmi
 # Note: -D__GBA__ is important for your code to select the correct paths
 COMMON   := $(ARCH) -O3 -Wall -ffast-math -mlong-calls -D__GBA__ -DUSE_GBA_SYNTH
-INCLUDES := -Iinclude -Ithird_party/synthGBA -I$(LIBGBA)/include
+INCLUDES := -Iinclude -Ithird_party/libSynthGBA -Ithird_party/synthGBA/include -I$(LIBGBA)/include
 
 CFLAGS   := $(COMMON) $(INCLUDES) -std=gnu11
 CXXFLAGS := $(COMMON) $(INCLUDES) -std=gnu++17 -fno-rtti -fno-exceptions
-LDFLAGS  := $(ARCH) -specs=gba.specs -L$(LIBGBA)/lib -lgba
+LDFLAGS  := $(ARCH) -specs=gba.specs -L$(LIBGBA)/lib -lgba -lm
 
 # Sources
 # Explicitly list src files to match CMake configuration
@@ -36,9 +36,10 @@ CPP_SRCS := src/main.cpp \
             src/gba_input.cpp \
             src/gba_display.cpp
 
-# Use wildcards for synthGBA as per CMake GLOB
-C_SRCS   := $(wildcard third_party/synthGBA/*.c)
-ASM_SRCS := $(wildcard third_party/synthGBA/*.s)
+C_SRCS   := third_party/libSynthGBA/Synth.c \
+            third_party/libSynthGBA/notes.c
+
+ASM_SRCS :=
 
 OBJS := $(CPP_SRCS:%.cpp=$(BUILD_DIR)/%.o) \
         $(C_SRCS:%.c=$(BUILD_DIR)/%.o) \

@@ -23,8 +23,7 @@ namespace bpm
 
     void gba_println(const std::string& str)
     {
-        iprintf((str + "
-").c_str());
+        iprintf((str + "\n  ").c_str());
     }
 
     void gba_clear_screen()
@@ -53,13 +52,11 @@ namespace bpm
         {
             if ((int)i == selected_index)
             {
-                gba_printf("> %s
-", commands[i].c_str());
+                gba_printf("> %s", commands[i].c_str());
             }
             else
             {
-                gba_printf("  %s
-", commands[i].c_str());
+                gba_printf("  %s", commands[i].c_str());
             }
         }
     }
