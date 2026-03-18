@@ -26,10 +26,37 @@ public:
     void clear();
     void randomize();
 
-    const std::vector<uint64_t> getFullGrid() const { return grid; }
-    void setFullGrid(const std::vector<uint64_t>& newGrid) { 
+    // Pattern management
+    void addPattern();
+    void removePattern(int index);
+    void switchPattern(int index);
+    int getCurrentPatternIndex() const { return currentPatternIndex; }
+    int getPatternCount() const { return patterns.size(); }
+    
+    void setSongMode(bool enabled) { songMode = enabled; }
+    bool getSongMode() const { return songMode; }
+
+    // Arrangement management
+    void setArrangement(const std::vector<int>& newArrangement);
+    const std::vector<int>& getArrangement() const { return arrangement; }
+    void clearArrangement() { arrangement.clear(); arrangementIndex = 0; }
+    int getArrangementIndex() const { return arrangementIndex; }
+
+    void setReadOnly(bool ro) { readOnly = ro; }
+    bool isReadOnly() const { return readOnly; }
+
+    const std::vector<uint64_t>& getActiveGrid() const { return patterns[currentPatternIndex]; }
+    const std::vector<std::vector<uint64_t>>& getAllPatterns() const { return patterns; }
+    
+    void setAllPatterns(const std::vector<std::vector<uint64_t>>& newPatterns) {
         std::lock_guard<std::mutex> lock(gridMutex);
-        grid = newGrid;
+        patterns = newPatterns;
+        if (currentPatternIndex >= (int)patterns.size()) {
+            currentPatternIndex = 0;
+        }
+        if (patterns.empty()) {
+            addPattern();
+        }
     }
 
     // To be called by audio callback
@@ -39,7 +66,15 @@ public:
 
 private:
     int numSteps = 64;
-    std::vector<uint64_t> grid;
+    std::vector<std::vector<uint64_t>> patterns;
+    int currentPatternIndex = 0;
+    
+    std::vector<int> arrangement;
+    int arrangementIndex = 0;
+
+    bool songMode = false;
+    bool readOnly = false;
+
     std::vector<std::unique_ptr<DrumSynth>> synths;
     std::shared_ptr<Kit> currentKit;
     mutable std::mutex gridMutex;

@@ -4,7 +4,8 @@
 
 namespace bpm {
 
-Sequencer::Sequencer() : bpm(120.0f), numSteps(64), currentStep(-1), sampleCounter(0.0f) {
+Sequencer::Sequencer() : numSteps(64), currentPatternIndex(0), arrangementIndex(0), bpm(120.0f), sampleCounter(0.0f), currentStep(-1) {
+    addPattern();
     loadKit(Kit::createDefaultKit());
 }
 
@@ -20,10 +21,12 @@ void Sequencer::loadKit(std::shared_ptr<Kit> newKit) {
     
     std::lock_guard<std::mutex> lock(gridMutex);
     
-    // Resize grid to match new kit size
+    // Resize all patterns to match new kit size
     size_t numInstruments = currentKit->getInstruments().size();
-    if (grid.size() != numInstruments) {
-        grid.resize(numInstruments);
+    for (auto& grid : patterns) {
+        if (grid.size() != numInstruments) {
+            grid.resize(numInstruments, 0);
+        }
     }
 
     synths.resize(numInstruments);
@@ -45,19 +48,19 @@ std::shared_ptr<Kit> Sequencer::getKit() const {
 
 void Sequencer::setStep(int channelIndex, int step, bool active) {
     std::lock_guard<std::mutex> lock(gridMutex);
-    if (channelIndex >= 0 && static_cast<size_t>(channelIndex) < grid.size() && step >= 0 && step < this->numSteps) {
+    if (channelIndex >= 0 && static_cast<size_t>(channelIndex) < patterns[currentPatternIndex].size() && step >= 0 && step < this->numSteps) {
         if (active) {
-            grid[channelIndex] |= (1ULL << step);
+            patterns[currentPatternIndex][channelIndex] |= (1ULL << step);
         } else {
-            grid[channelIndex] &= ~(1ULL << step);
+            patterns[currentPatternIndex][channelIndex] &= ~(1ULL << step);
         }
     }
 }
 
 bool Sequencer::getStep(int channelIndex, int step) const {
     std::lock_guard<std::mutex> lock(gridMutex);
-    if (channelIndex >= 0 && static_cast<size_t>(channelIndex) < grid.size() && step >= 0 && step < numSteps) {
-        return (static_cast<uint64_t>(grid[channelIndex]) >> step) & 1;
+    if (channelIndex >= 0 && static_cast<size_t>(channelIndex) < patterns[currentPatternIndex].size() && step >= 0 && step < numSteps) {
+        return (static_cast<uint64_t>(patterns[currentPatternIndex][channelIndex]) >> step) & 1;
     }
     return false;
 }
@@ -86,22 +89,62 @@ float Sequencer::getBPM() const {
 
 void Sequencer::clear() {
     std::lock_guard<std::mutex> lock(gridMutex);
-    for (auto& track : grid) {
+    for (auto& track : patterns[currentPatternIndex]) {
         track = 0;
     }
 }
 
 void Sequencer::randomize() {
     std::lock_guard<std::mutex> lock(gridMutex);
-    for (size_t t = 0; t < grid.size(); ++t) {
+    for (size_t t = 0; t < patterns[currentPatternIndex].size(); ++t) {
         for (int s = 0; s < numSteps; ++s) {
             // ~5% chance of a trigger per step per track
             if (std::rand() % 100 < 5) {
-                grid[t] |= (1ULL << s);
+                patterns[currentPatternIndex][t] |= (1ULL << s);
             } else {
-                grid[t] &= ~(1ULL << s);
+                patterns[currentPatternIndex][t] &= ~(1ULL << s);
             }
         }
+    }
+}
+
+void Sequencer::addPattern() {
+    std::lock_guard<std::mutex> lock(gridMutex);
+    size_t numInstruments = currentKit ? currentKit->getInstruments().size() : 0;
+    patterns.push_back(std::vector<uint64_t>(numInstruments, 0));
+}
+
+void Sequencer::removePattern(int index) {
+    std::lock_guard<std::mutex> lock(gridMutex);
+    if (patterns.size() <= 1) return;
+    if (index >= 0 && index < (int)patterns.size()) {
+        patterns.erase(patterns.begin() + index);
+        if (currentPatternIndex >= (int)patterns.size()) {
+            currentPatternIndex = (int)patterns.size() - 1;
+        }
+        // Also update arrangement to remove invalid indices
+        std::vector<int> newArr;
+        for (int p : arrangement) {
+            if (p < index) newArr.push_back(p);
+            else if (p > index) newArr.push_back(p - 1);
+        }
+        arrangement = newArr;
+    }
+}
+
+void Sequencer::switchPattern(int index) {
+    std::lock_guard<std::mutex> lock(gridMutex);
+    if (index >= 0 && index < (int)patterns.size()) {
+        currentPatternIndex = index;
+    }
+}
+
+void Sequencer::setArrangement(const std::vector<int>& newArrangement) {
+    std::lock_guard<std::mutex> lock(gridMutex);
+    arrangement = newArrangement;
+    arrangementIndex = 0;
+    if (!arrangement.empty() && songMode) {
+        currentPatternIndex = arrangement[0];
     }
 }
 
@@ -119,11 +162,24 @@ void Sequencer::process(float sampleRate, int numSamples, float* outputBuffer) {
         sampleCounter += 1.0f;
         if (sampleCounter >= samplesPerStep) {
             sampleCounter -= samplesPerStep;
-            currentStep = (currentStep + 1) % numSteps;
+            int nextStep = (currentStep + 1) % numSteps;
+            
+            // In song mode, if we wrap, move to the next pattern
+            if (nextStep == 0 && currentStep != -1 && songMode) {
+                if (!arrangement.empty()) {
+                    arrangementIndex = (arrangementIndex + 1) % arrangement.size();
+                    currentPatternIndex = arrangement[arrangementIndex];
+                } else {
+                    currentPatternIndex = (currentPatternIndex + 1) % patterns.size();
+                }
+            }
+            
+            currentStep = nextStep;
 
             // Trigger synths for current step
-            for (size_t t = 0; t < grid.size(); ++t) {
-                if (((static_cast<uint64_t>(grid[t]) >> currentStep) & 1) && synths[t]) {
+            const auto& activeGrid = patterns[currentPatternIndex];
+            for (size_t t = 0; t < activeGrid.size(); ++t) {
+                if (((static_cast<uint64_t>(activeGrid[t]) >> currentStep) & 1) && t < synths.size() && synths[t]) {
                     synths[t]->trigger();
                 }
             }

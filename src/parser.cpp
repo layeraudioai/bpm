@@ -5,6 +5,8 @@
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
+#include <cmath>
+#include <map>
 
 namespace bpm {
 
@@ -108,34 +110,78 @@ void CommandParser::parse(const std::string& input) {
 
     if (command.empty()) return;
 
-    // Project commands
-    if (command == "save" || command == "load") {
+    // Check ReadOnly
+    bool isMutation = (command == "add" || command == "remove" || command == "set" || 
+                       command == "clear" || command == "randomize" || command == "shuffle" ||
+                       command == "generate" || s.find(" on ") != std::string::npos);
+    
+    if (sequencer->isReadOnly() && isMutation) {
+        if (s.find("set song_mode") == std::string::npos && command != "switch" && command != "pattern") {
+            std::cout << "Song is READONLY. Mutation commands disabled." << std::endl;
+            return;
+        }
+    }
+
+    // Project/Style/Structure/Song commands
+    if (command == "save" || command == "load" || command == "export") {
         std::string object_type;
         ss >> object_type;
+        std::string name;
+        ss >> name;
+
         if (object_type == "project") {
-            std::string name;
-            ss >> name;
             if (command == "save") {
-                if (projectManager->save(name, *sequencer)) {
-                    std::cout << "Project '" << name << "' saved." << std::endl;
-                }
-            } else {
-                if (projectManager->load(name, *sequencer)) {
-                    std::cout << "Project '" << name << "' loaded." << std::endl;
-                }
+                if (projectManager->save(name, *sequencer)) std::cout << "Project '" << name << "' saved." << std::endl;
+            } else if (command == "load") {
+                if (projectManager->load(name, *sequencer)) std::cout << "Project '" << name << "' loaded." << std::endl;
+            }
+            return;
+        } else if (object_type == "style") {
+            if (command == "save") {
+                if (projectManager->saveStyle(name, *sequencer)) std::cout << "Style '" << name << "' saved." << std::endl;
+            } else if (command == "load") {
+                if (projectManager->loadStyle(name, *sequencer)) std::cout << "Style '" << name << "' loaded." << std::endl;
+            }
+            return;
+        } else if (object_type == "structure") {
+            if (command == "save") {
+                if (projectManager->saveStructure(name, *sequencer)) std::cout << "Structure '" << name << "' saved." << std::endl;
+            } else if (command == "load") {
+                if (projectManager->loadStructure(name, *sequencer)) std::cout << "Structure '" << name << "' loaded." << std::endl;
+            }
+            return;
+        } else if (object_type == "song") {
+            if (command == "export" || command == "save") {
+                if (projectManager->exportSong(name, *sequencer)) std::cout << "Song exported to '" << name << ".song' (ReadOnly)." << std::endl;
+            } else if (command == "load") {
+                if (projectManager->loadSong(name, *sequencer)) std::cout << "Song '" << name << "' loaded (ReadOnly mode)." << std::endl;
             }
             return;
         }
     }
     
     if (s == "list projects") {
-        auto projects = projectManager->listProjects();
-        if (projects.empty()) {
-            std::cout << "No projects found in library." << std::endl;
-        } else {
-            std::cout << "Saved projects:" << std::endl;
-            for (const auto& p : projects) std::cout << "  - " << p << std::endl;
-        }
+        auto files = projectManager->listFiles(".bpm");
+        std::cout << "Saved projects:" << std::endl;
+        for (const auto& f : files) std::cout << "  - " << f << std::endl;
+        return;
+    }
+    if (s == "list styles" || s == "styles") {
+        auto files = projectManager->listFiles(".style");
+        std::cout << "Available styles:" << std::endl;
+        for (const auto& f : files) std::cout << "  - " << f << std::endl;
+        return;
+    }
+    if (s == "list structures" || s == "structures") {
+        auto files = projectManager->listFiles(".structure");
+        std::cout << "Available structures:" << std::endl;
+        for (const auto& f : files) std::cout << "  - " << f << std::endl;
+        return;
+    }
+    if (s == "list songs" || s == "songs") {
+        auto files = projectManager->listFiles(".song");
+        std::cout << "Exported songs (ReadOnly):" << std::endl;
+        for (const auto& f : files) std::cout << "  - " << f << std::endl;
         return;
     }
 
@@ -144,9 +190,7 @@ void CommandParser::parse(const std::string& input) {
         std::string name;
         ss >> name;
         auto kit = kitManager->load(name);
-        if (kit) {
-            sequencer->loadKit(kit);
-        }
+        if (kit) sequencer->loadKit(kit);
         return;
     }
 
@@ -161,9 +205,8 @@ void CommandParser::parse(const std::string& input) {
 
     if (command == "kits" || command == "listkits") {
         auto kits = kitManager->listKits();
-        if (kits.empty()) {
-            std::cout << "No kits found." << std::endl;
-        } else {
+        if (kits.empty()) std::cout << "No kits found." << std::endl;
+        else {
             std::cout << "Available kits:" << std::endl;
             for (const auto& k : kits) std::cout << "  - " << k << std::endl;
         }
@@ -193,8 +236,14 @@ void CommandParser::parse(const std::string& input) {
     if (command == "add") {
         std::string type, name;
         ss >> type >> name;
-        if (name.empty()) name = type;
         
+        if (type == "pattern") {
+            sequencer->addPattern();
+            std::cout << "Added pattern " << sequencer->getPatternCount() - 1 << std::endl;
+            return;
+        }
+
+        if (name.empty()) name = type;
         static const std::vector<std::string> validTypes = {
             "simplekick", "simplesnare", "simplehat", "simpletom", "simplecymbal", "simplebeep"
         };
@@ -202,12 +251,74 @@ void CommandParser::parse(const std::string& input) {
         if (std::find(validTypes.begin(), validTypes.end(), type) != validTypes.end()) {
             auto kit = sequencer->getKit();
             kit->addInstrument(name, {type, 220.0f, 0.5f, 1.0f, 0.5f});
-            sequencer->loadKit(kit); // Reload to update synths and grid
+            sequencer->loadKit(kit);
             std::cout << "Added instrument '" << name << "' of type '" << type << "'." << std::endl;
         } else {
-            std::cout << "Invalid instrument type. Valid types: simplekick, simplesnare, simplehat, simpletom, simplecymbal" << std::endl;
+            std::cout << "Invalid instrument type." << std::endl;
         }
         return;
+    }
+
+    if (command == "switch" || command == "pattern") {
+        std::string sub;
+        if (command == "pattern") {
+            if (ss >> sub) {
+                if (sub == "add") {
+                    sequencer->addPattern();
+                    std::cout << "Added pattern " << sequencer->getPatternCount() - 1 << std::endl;
+                    return;
+                } else if (sub == "list") goto list_patterns;
+                else {
+                    try {
+                        int index = std::stoi(sub);
+                        sequencer->switchPattern(index);
+                        std::cout << "Switched to pattern " << index << std::endl;
+                        return;
+                    } catch (...) {}
+                }
+            } else goto list_patterns;
+        } else {
+            ss >> sub;
+            if (sub == "pattern") {
+                int index;
+                if (ss >> index) {
+                    sequencer->switchPattern(index);
+                    std::cout << "Switched to pattern " << index << std::endl;
+                    return;
+                }
+            }
+        }
+    }
+
+    if (s == "list patterns" || s == "patterns") {
+    list_patterns:
+        std::cout << "Patterns (" << sequencer->getPatternCount() << "):" << std::endl;
+        for (int i = 0; i < sequencer->getPatternCount(); ++i) {
+            std::cout << (i == sequencer->getCurrentPatternIndex() ? "  * " : "    ") << i << std::endl;
+        }
+        const auto& arr = sequencer->getArrangement();
+        if (!arr.empty()) {
+            std::cout << "Arrangement: ";
+            for (size_t i = 0; i < arr.size(); ++i) {
+                if ((int)i == sequencer->getArrangementIndex() && sequencer->getSongMode()) std::cout << "[" << arr[i] << "] ";
+                else std::cout << arr[i] << " ";
+            }
+            std::cout << std::endl;
+        }
+        return;
+    }
+
+    if (command == "remove") {
+        std::string type;
+        ss >> type;
+        if (type == "pattern") {
+            int index;
+            if (ss >> index) {
+                sequencer->removePattern(index);
+                std::cout << "Removed pattern " << index << std::endl;
+                return;
+            }
+        }
     }
 
     // Sequencer commands
@@ -220,53 +331,122 @@ void CommandParser::parse(const std::string& input) {
     if (s == "generate new beep pattern" || s == "generate new melody" || s == "generate melody") {
         auto kit = sequencer->getKit();
         auto instruments = kit->getInstruments();
-        
-        // Find all beep channels
         std::vector<int> beepChannels;
         for (size_t i = 0; i < instruments.size(); ++i) {
-            if (instruments[i].params.type == "simplebeep") {
-                beepChannels.push_back((int)i);
-            }
+            if (instruments[i].params.type == "simplebeep") beepChannels.push_back((int)i);
         }
-
         if (beepChannels.empty()) {
-            std::cout << "No beep instruments found to generate melody for. Use 'add simplebeep beep' first." << std::endl;
+            std::cout << "No beep instruments found." << std::endl;
             return;
         }
-
-        // Define a simple scale (C major for simplicity, or randomized root)
         static const std::vector<int> scale = {0, 2, 4, 5, 7, 9, 11};
         int root = rand() % 12;
         int octave = 3 + (rand() % 3);
-
         for (int channel : beepChannels) {
-            // Clear existing pattern for this channel
-            for (int i = 0; i < sequencer->getNumSteps(); ++i) {
-                sequencer->setStep(channel, i, false);
-            }
-
-            // Generate a simple rhythmic/melodic pattern
-            int density = 4 + (rand() % 8); // Number of notes in the pattern
+            for (int i = 0; i < sequencer->getNumSteps(); ++i) sequencer->setStep(channel, i, false);
+            int density = 4 + (rand() % 8);
             for (int i = 0; i < density; ++i) {
                 int step = rand() % sequencer->getNumSteps();
                 int noteIdx = rand() % scale.size();
                 int noteMidi = (octave + 1) * 12 + root + scale[noteIdx];
                 float freq = 440.0f * std::pow(2.0f, (noteMidi - 69) / 12.0f);
-                
-                // For a true melody, we might want to change freq PER step, 
-                // but our current architecture has 1 freq per instrument synth.
-                // To keep it simple and compatible: we'll set a random "scale" frequency for the instrument
-                // and place some hits. If multiple beep channels exist, they'll get different notes.
-                
                 auto params = kit->getParams(channel);
                 params.frequency = freq;
                 kit->setParams(channel, params);
                 sequencer->loadKit(kit);
-
                 sequencer->setStep(channel, step, true);
             }
         }
-        std::cout << "Melodic pattern generated for " << beepChannels.size() << " beep channels." << std::endl;
+        return;
+    }
+
+    if (s == "generate full song" || s == "add random style" || s == "generate random style") {
+        bool keepKit = (s.find("style") != std::string::npos);
+        int styleRoll = rand() % 100;
+        std::string styleName = "Pop";
+        int numPatterns = 4;
+        std::vector<int> densities;
+        std::vector<int> arrangement;
+
+        if (styleRoll < 80) {
+            styleName = "Pop";
+            numPatterns = 4;
+            densities = {5, 12, 22, 8};
+            arrangement = {0, 1, 1, 2, 2, 1, 2, 2, 3}; // Intro, V, V, C, C, V, C, C, Outro
+        } else if (styleRoll < 90) {
+            styleName = "Club/Techno";
+            numPatterns = 4;
+            densities = {5, 15, 30, 10};
+            arrangement = {0, 0, 1, 1, 2, 2, 2, 2, 1, 1, 3, 3};
+        } else if (styleRoll < 95) {
+            styleName = "Minimalist";
+            numPatterns = 3;
+            densities = {2, 5, 8};
+            arrangement = {0, 0, 1, 1, 2, 2, 1, 1, 0, 0};
+        } else {
+            styleName = "Experimental/Chaos";
+            numPatterns = 2 + (rand() % 6);
+            for (int i = 0; i < numPatterns; ++i) densities.push_back(1 + (rand() % 40));
+            int arrLen = 4 + (rand() % 10);
+            for (int i = 0; i < arrLen; ++i) arrangement.push_back(rand() % numPatterns);
+        }
+
+        if (!keepKit) sequencer->loadKit(createRandomKit());
+        while (sequencer->getPatternCount() > 0) sequencer->removePattern(0);
+        for (int i = 0; i < numPatterns; ++i) sequencer->addPattern();
+        
+        for (int p = 0; p < numPatterns; ++p) {
+            sequencer->switchPattern(p);
+            sequencer->clear();
+            int d = densities[p];
+            for (size_t t = 0; t < sequencer->getKit()->getInstruments().size(); ++t) {
+                for (int step = 0; step < sequencer->getNumSteps(); ++step) {
+                    if (rand() % 100 < d) sequencer->setStep(t, step, true);
+                }
+            }
+            parse("generate melody");
+        }
+        
+        sequencer->setArrangement(arrangement);
+        sequencer->switchPattern(arrangement[0]);
+        sequencer->setSongMode(true);
+        std::cout << "Generated " << styleName << " (" << arrangement.size() << " sections)." << std::endl;
+        return;
+    }
+
+    if (s == "generate random arrangement" || s == "new random arrangement") {
+        int numPatterns = sequencer->getPatternCount();
+        if (numPatterns == 0) {
+            std::cout << "No patterns available to arrange." << std::endl;
+            return;
+        }
+
+        int styleRoll = rand() % 100;
+        std::vector<int> arrangement;
+        std::string styleName;
+
+        if (styleRoll < 70 && numPatterns >= 3) {
+            styleName = "Pop";
+            // Intro(0), V(1), V(1), C(2), C(2), V(1), C(2), C(2), Outro(3 or 0)
+            arrangement = {0, 1, 1, 2, 2};
+            if (numPatterns > 1) arrangement.push_back(1);
+            if (numPatterns > 2) { arrangement.push_back(2); arrangement.push_back(2); }
+            arrangement.push_back(numPatterns > 3 ? 3 : 0);
+        } else if (styleRoll < 90) {
+            styleName = "Linear/Club";
+            // Play each pattern a few times
+            for (int i = 0; i < numPatterns; ++i) {
+                int reps = 1 + (rand() % 3);
+                for (int r = 0; reps > r; ++r) arrangement.push_back(i);
+            }
+        } else {
+            styleName = "Random Chaos";
+            int len = 4 + (rand() % 12);
+            for (int i = 0; i < len; ++i) arrangement.push_back(rand() % numPatterns);
+        }
+
+        sequencer->setArrangement(arrangement);
+        std::cout << "Generated random '" << styleName << "' arrangement using " << numPatterns << " patterns." << std::endl;
         return;
     }
 
@@ -280,15 +460,12 @@ void CommandParser::parse(const std::string& input) {
     if (s == "faster" || s == "speed up" || s == "tempo up") {
         float newBpm = sequencer->getBPM() + 10.0f;
         sequencer->setBPM(newBpm);
-        std::cout << "BPM increased to " << newBpm << std::endl;
         return;
     }
-
     if (s == "slower" || s == "slow down" || s == "tempo down") {
         float newBpm = sequencer->getBPM() - 10.0f;
         if (newBpm < 20.0f) newBpm = 20.0f;
         sequencer->setBPM(newBpm);
-        std::cout << "BPM decreased to " << newBpm << std::endl;
         return;
     }
     
@@ -297,16 +474,23 @@ void CommandParser::parse(const std::string& input) {
         ss >> first;
         if (first == "bpm" || first == "tempo") {
             float bpm;
-            if (ss >> bpm) {
-                sequencer->setBPM(bpm);
-                std::cout << "BPM set to " << bpm << std::endl;
-            }
+            if (ss >> bpm) sequencer->setBPM(bpm);
         } else if (first == "steps") {
             int steps;
-            if (ss >> steps) {
-                sequencer->setNumSteps(steps);
-                std::cout << "Number of steps set to " << steps << std::endl;
+            if (ss >> steps) sequencer->setNumSteps(steps);
+        } else if (first == "song_mode") {
+            std::string state;
+            if (ss >> state) {
+                bool enabled = (state == "on" || state == "1" || state == "true" || state == "yes");
+                sequencer->setSongMode(enabled);
+                std::cout << "Song mode " << (enabled ? "ON" : "OFF") << std::endl;
             }
+        } else if (first == "arrangement") {
+            std::vector<int> arr;
+            int p;
+            while (ss >> p) arr.push_back(p);
+            sequencer->setArrangement(arr);
+            std::cout << "Arrangement updated." << std::endl;
         } else if (first == "kit") {
             std::string sub;
             ss >> sub;
@@ -316,90 +500,41 @@ void CommandParser::parse(const std::string& input) {
                     auto kit = sequencer->getKit();
                     int currentSize = kit->getInstruments().size();
                     if (size < currentSize) {
-                        for (int i = currentSize - 1; i >= size; --i) {
-                            kit->removeInstrument(i);
-                        }
+                        for (int i = currentSize - 1; i >= size; --i) kit->removeInstrument(i);
                     } else if (size > currentSize) {
-                        auto randFloat = [](float min, float max) {
-                            return min + (max - min) * (static_cast<float>(rand()) / static_cast<float>(RAND_MAX));
-                        };
-                        static const std::vector<std::string> types = {
-                            "simplekick", "simplesnare", "simplehat", "simpletom", "simplecymbal", "simplebeep"
-                        };
+                        auto randFloat = [](float min, float max) { return min + (max - min) * (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)); };
+                        static const std::vector<std::string> types = {"simplekick", "simplesnare", "simplehat", "simpletom", "simplecymbal", "simplebeep"};
                         for (int i = currentSize; i < size; ++i) {
                             std::string type = types[rand() % types.size()];
-                            std::string name = type + "_" + std::to_string(i);
-                            kit->addInstrument(name, {
-                                type, 
-                                randFloat(40.0f, 600.0f), 
-                                randFloat(0.05f, 1.5f), 
-                                randFloat(0.4f, 1.0f), 
-                                randFloat(0.0f, 1.0f)
-                            });
+                            kit->addInstrument(type + "_" + std::to_string(i), {type, randFloat(40.0f, 600.0f), randFloat(0.05f, 1.5f), randFloat(0.4f, 1.0f), randFloat(0.0f, 1.0f)});
                         }
                     }
                     sequencer->loadKit(kit);
-                    std::cout << "Kit size set to " << size << "." << std::endl;
                 }
             }
         } else {
-            // Assume first is instrument name: set <instrument> <param> <value>
             int channel = stringToChannelIndex(first);
             if (channel != -1) {
-                std::string param;
-                std::string valueStr;
+                std::string param, valueStr;
                 if (ss >> param >> valueStr) {
                     auto kit = sequencer->getKit();
                     auto params = kit->getParams(channel);
-                    
                     float value = 0.0f;
-                    bool isNote = false;
-                    if (param == "freq" || param == "frequency") {
-                        // Check if valueStr is a number or a note
-                        if (std::isalpha(valueStr[0])) {
-                            value = noteToFrequency(valueStr);
-                            isNote = true;
-                        } else {
-                            try {
-                                value = std::stof(valueStr);
-                            } catch (...) {
-                                std::cout << "Invalid frequency value." << std::endl;
-                                return;
-                            }
-                        }
-                    } else {
-                        try {
-                            value = std::stof(valueStr);
-                        } catch (...) {
-                            std::cout << "Invalid parameter value." << std::endl;
-                            return;
-                        }
-                    }
-
+                    if ((param == "freq" || param == "frequency") && std::isalpha(valueStr[0])) value = noteToFrequency(valueStr);
+                    else try { value = std::stof(valueStr); } catch (...) { return; }
                     if (param == "freq" || param == "frequency") params.frequency = value;
                     else if (param == "decay") params.decay = value;
                     else if (param == "gain" || param == "vol" || param == "volume") params.gain = value;
                     else if (param == "pan") params.pan = value;
-                    else {
-                        std::cout << "Unknown parameter '" << param << "'. Valid: freq, decay, gain, pan" << std::endl;
-                        return;
-                    }
+                    else return;
                     kit->setParams(channel, params);
-                    sequencer->loadKit(kit); // Reload to update synths
-                    if (isNote) {
-                        std::cout << "Set freq of " << first << " to " << valueStr << " (" << value << " Hz)" << std::endl;
-                    } else {
-                        std::cout << "Set " << param << " of " << first << " to " << value << std::endl;
-                    }
+                    sequencer->loadKit(kit);
                 }
-            } else {
-                std::cout << "Unknown parameter or instrument: " << first << std::endl;
             }
         }
         return;
     }
     
-    // Pattern commands
     int channel = stringToChannelIndex(command);
     if (channel != -1) {
         std::string on;
@@ -410,21 +545,13 @@ void CommandParser::parse(const std::string& input) {
             if (next == "every") {
                 int interval;
                 if (ss >> interval) {
-                    for (int i = 0; i < sequencer->getNumSteps(); i += interval) {
-                        sequencer->setStep(channel, i, true);
-                    }
-                    std::cout << "Set " << command << " on every " << interval << " steps." << std::endl;
+                    for (int i = 0; i < sequencer->getNumSteps(); i += interval) sequencer->setStep(channel, i, true);
                 }
             } else {
-                // Parse specific steps: "kick on 1 5 9 13"
-                int step;
                 try {
-                    step = std::stoi(next);
+                    int step = std::stoi(next);
                     sequencer->setStep(channel, step - 1, true);
-                    while (ss >> step) {
-                        sequencer->setStep(channel, step - 1, true);
-                    }
-                    std::cout << "Set " << command << " on specific steps." << std::endl;
+                    while (ss >> step) sequencer->setStep(channel, step - 1, true);
                 } catch (...) {}
             }
         }
