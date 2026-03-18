@@ -8,6 +8,41 @@
 
 namespace bpm {
 
+float noteToFrequency(const std::string& note) {
+    if (note.empty()) return 0.0f;
+
+    static const std::map<std::string, int> noteOffsets = {
+        {"c", 0}, {"c#", 1}, {"db", 1}, {"d", 2}, {"d#", 3}, {"eb", 3},
+        {"e", 4}, {"f", 5}, {"f#", 6}, {"gb", 6}, {"g", 7}, {"g#", 8},
+        {"ab", 8}, {"a", 9}, {"a#", 10}, {"bb", 10}, {"b", 11}
+    };
+
+    std::string name;
+    std::string octaveStr;
+    
+    size_t i = 0;
+    if (i < note.length()) name += std::tolower(note[i++]);
+    if (i < note.length() && (note[i] == '#' || std::tolower(note[i]) == 'b')) {
+        name += std::tolower(note[i++]);
+    }
+    
+    while (i < note.length()) {
+        octaveStr += note[i++];
+    }
+
+    if (noteOffsets.find(name) == noteOffsets.end()) return 0.0f;
+    
+    int octave = 4;
+    try {
+        if (!octaveStr.empty()) octave = std::stoi(octaveStr);
+    } catch (...) {
+        return 0.0f;
+    }
+
+    int midiNote = (octave + 1) * 12 + noteOffsets.at(name);
+    return 440.0f * std::pow(2.0f, (midiNote - 69) / 12.0f);
+}
+
 CommandParser::CommandParser(std::shared_ptr<Sequencer> sequencer,
                            std::shared_ptr<ProjectManager> projectManager,
                            std::shared_ptr<KitManager> kitManager)
@@ -161,7 +196,7 @@ void CommandParser::parse(const std::string& input) {
         if (name.empty()) name = type;
         
         static const std::vector<std::string> validTypes = {
-            "simplekick", "simplesnare", "simplehat", "simpletom", "simplecymbal"
+            "simplekick", "simplesnare", "simplehat", "simpletom", "simplecymbal", "simplebeep"
         };
         
         if (std::find(validTypes.begin(), validTypes.end(), type) != validTypes.end()) {
@@ -179,6 +214,59 @@ void CommandParser::parse(const std::string& input) {
     if (s == "new random beat" || s == "randomize" || s == "shuffle") {
         sequencer->randomize();
         std::cout << "Pattern randomized." << std::endl;
+        return;
+    }
+
+    if (s == "generate new beep pattern" || s == "generate new melody" || s == "generate melody") {
+        auto kit = sequencer->getKit();
+        auto instruments = kit->getInstruments();
+        
+        // Find all beep channels
+        std::vector<int> beepChannels;
+        for (size_t i = 0; i < instruments.size(); ++i) {
+            if (instruments[i].params.type == "simplebeep") {
+                beepChannels.push_back((int)i);
+            }
+        }
+
+        if (beepChannels.empty()) {
+            std::cout << "No beep instruments found to generate melody for. Use 'add simplebeep beep' first." << std::endl;
+            return;
+        }
+
+        // Define a simple scale (C major for simplicity, or randomized root)
+        static const std::vector<int> scale = {0, 2, 4, 5, 7, 9, 11};
+        int root = rand() % 12;
+        int octave = 3 + (rand() % 3);
+
+        for (int channel : beepChannels) {
+            // Clear existing pattern for this channel
+            for (int i = 0; i < sequencer->getNumSteps(); ++i) {
+                sequencer->setStep(channel, i, false);
+            }
+
+            // Generate a simple rhythmic/melodic pattern
+            int density = 4 + (rand() % 8); // Number of notes in the pattern
+            for (int i = 0; i < density; ++i) {
+                int step = rand() % sequencer->getNumSteps();
+                int noteIdx = rand() % scale.size();
+                int noteMidi = (octave + 1) * 12 + root + scale[noteIdx];
+                float freq = 440.0f * std::pow(2.0f, (noteMidi - 69) / 12.0f);
+                
+                // For a true melody, we might want to change freq PER step, 
+                // but our current architecture has 1 freq per instrument synth.
+                // To keep it simple and compatible: we'll set a random "scale" frequency for the instrument
+                // and place some hits. If multiple beep channels exist, they'll get different notes.
+                
+                auto params = kit->getParams(channel);
+                params.frequency = freq;
+                kit->setParams(channel, params);
+                sequencer->loadKit(kit);
+
+                sequencer->setStep(channel, step, true);
+            }
+        }
+        std::cout << "Melodic pattern generated for " << beepChannels.size() << " beep channels." << std::endl;
         return;
     }
 
@@ -236,7 +324,7 @@ void CommandParser::parse(const std::string& input) {
                             return min + (max - min) * (static_cast<float>(rand()) / static_cast<float>(RAND_MAX));
                         };
                         static const std::vector<std::string> types = {
-                            "simplekick", "simplesnare", "simplehat", "simpletom", "simplecymbal"
+                            "simplekick", "simplesnare", "simplehat", "simpletom", "simplecymbal", "simplebeep"
                         };
                         for (int i = currentSize; i < size; ++i) {
                             std::string type = types[rand() % types.size()];
@@ -259,10 +347,35 @@ void CommandParser::parse(const std::string& input) {
             int channel = stringToChannelIndex(first);
             if (channel != -1) {
                 std::string param;
-                float value;
-                if (ss >> param >> value) {
+                std::string valueStr;
+                if (ss >> param >> valueStr) {
                     auto kit = sequencer->getKit();
                     auto params = kit->getParams(channel);
+                    
+                    float value = 0.0f;
+                    bool isNote = false;
+                    if (param == "freq" || param == "frequency") {
+                        // Check if valueStr is a number or a note
+                        if (std::isalpha(valueStr[0])) {
+                            value = noteToFrequency(valueStr);
+                            isNote = true;
+                        } else {
+                            try {
+                                value = std::stof(valueStr);
+                            } catch (...) {
+                                std::cout << "Invalid frequency value." << std::endl;
+                                return;
+                            }
+                        }
+                    } else {
+                        try {
+                            value = std::stof(valueStr);
+                        } catch (...) {
+                            std::cout << "Invalid parameter value." << std::endl;
+                            return;
+                        }
+                    }
+
                     if (param == "freq" || param == "frequency") params.frequency = value;
                     else if (param == "decay") params.decay = value;
                     else if (param == "gain" || param == "vol" || param == "volume") params.gain = value;
@@ -273,7 +386,11 @@ void CommandParser::parse(const std::string& input) {
                     }
                     kit->setParams(channel, params);
                     sequencer->loadKit(kit); // Reload to update synths
-                    std::cout << "Set " << param << " of " << first << " to " << value << std::endl;
+                    if (isNote) {
+                        std::cout << "Set freq of " << first << " to " << valueStr << " (" << value << " Hz)" << std::endl;
+                    } else {
+                        std::cout << "Set " << param << " of " << first << " to " << value << std::endl;
+                    }
                 }
             } else {
                 std::cout << "Unknown parameter or instrument: " << first << std::endl;

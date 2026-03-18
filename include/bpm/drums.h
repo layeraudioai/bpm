@@ -99,4 +99,12 @@ public:
     void process(float sampleRate, float* left, float* right) override;
 };
 
+class SimpleBeep : public DrumSynth {
+public:
+    SimpleBeep(const DrumSynthParams& params);
+    void process(float sampleRate, float* left, float* right) override;
+private:
+    float phase = 0.0f;
+};
+
 } // namespace bpm

@@ -84,6 +84,8 @@ std::unique_ptr<DrumSynth> Kit::createSynth(const DrumSynthParams& params) {
         return std::make_unique<SimpleTom>(params);
     } else if (params.type == "simplecymbal") {
         return std::make_unique<SimpleCymbal>(params);
+    } else if (params.type == "simplebeep") {
+        return std::make_unique<SimpleBeep>(params);
     }
     return nullptr;
 }
@@ -222,6 +224,32 @@ void SimpleCymbal::process(float sampleRate, float* left, float* right) {
     if (env <= 0.0f) {
         env = 0.0f;
         active = false;
+    }
+}
+
+// --- SimpleBeep ---
+SimpleBeep::SimpleBeep(const DrumSynthParams& params) : DrumSynth(params), phase(0.0f) {}
+
+void SimpleBeep::process(float sampleRate, float* left, float* right) {
+    if (!active) {
+        *left = *right = 0.0f;
+        return;
+    }
+
+    float val = std::sin(phase);
+    phase += (2.0f * M_PI * params.frequency) / sampleRate;
+    if (phase > 2.0f * M_PI) phase -= 2.0f * M_PI;
+
+    float mono = val * env * params.gain;
+    *left = mono * (1.0f - params.pan);
+    *right = mono * params.pan;
+
+    env -= (1.0f / (params.decay * sampleRate));
+
+    if (env <= 0.0f) {
+        env = 0.0f;
+        active = false;
+        phase = 0.0f;
     }
 }
 
