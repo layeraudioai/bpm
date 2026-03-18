@@ -1,8 +1,8 @@
 #include "Synth.h"
 #include "notes.h"
 #include "fixed.h"
-#include <gba_regs.h>
-#include <gba_interrupt.h>
+#include "gba_regs.h"
+#include "gba_interrupt.h"
 #include <string.h>
 #include <stdlib.h>
 
