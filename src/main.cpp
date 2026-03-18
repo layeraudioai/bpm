@@ -138,10 +138,11 @@ int main(int argc, char** argv) {
             if (cmd == "exit") {
                 running = false;
             } else {
+                // Clear the screen to show command output (if any)
+                // then redraw the menu on next B press
+                gba_clear_screen();
                 parser.parse(cmd);
-                // Ideally we'd have a console to see the output.
-                // For now, we just go back to the menu.
-                needs_redraw = true;
+                gba_println("\nPress B to return to menu");
             }
         }
         

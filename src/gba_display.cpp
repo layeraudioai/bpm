@@ -1,6 +1,7 @@
 #ifdef __GBA__
 
 #include "bpm/gba_display.h"
+#include <gba_console.h>
 #include <gba_video.h>
 #include <gba_systemcalls.h>
 #include <stdio.h>
@@ -9,27 +10,9 @@
 
 namespace bpm
 {
-
-    // Basic font for rendering text
-    extern const u8 msx_font[];
-
-    // Simple console implementation
-    char con_buffer[32 * 32];
-
-    void con_write(const char* ptr)
-    {
-        strncat(con_buffer, ptr, sizeof(con_buffer) - strlen(con_buffer) - 1);
-    }
-
-    void con_clear()
-    {
-        memset(con_buffer, 0, sizeof(con_buffer));
-        REG_BG0VOFS = 0;
-    }
-
     void init_gba_display()
     {
-        // Using basic console for now
+        // Initialize the console system
         consoleDemoInit();
     }
 
@@ -46,8 +29,8 @@ namespace bpm
 
     void gba_clear_screen()
     {
-        // iprintf("\x1b[2J"); //not working
-        con_clear();
+        // Use ANSI escape code to clear console
+        iprintf("\x1b[2J");
     }
 
     void gba_printf(const char* fmt, ...)
@@ -63,11 +46,12 @@ namespace bpm
     void gba_menu_draw(const std::vector<std::string>& commands, int selected_index)
     {
         gba_clear_screen();
+        // iprintf("\x1b[0;0H"); // Move cursor to top-left
         gba_println("BPM for GBA");
         gba_println("Select a command:");
-        for (int i = 0; i < commands.size(); ++i)
+        for (size_t i = 0; i < commands.size(); ++i)
         {
-            if (i == selected_index)
+            if ((int)i == selected_index)
             {
                 gba_printf("> %s
 ", commands[i].c_str());
@@ -75,11 +59,10 @@ namespace bpm
             else
             {
                 gba_printf("  %s
-", commands[i].c_c_str());
+", commands[i].c_str());
             }
         }
     }
-
 
 } // namespace bpm
 
