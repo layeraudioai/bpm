@@ -25,12 +25,24 @@ set(SOURCES
     src/drums.cpp
     src/parser.cpp
     src/project_manager.cpp
+    src/kit_manager.cpp
 )
+
+if(CMAKE_SYSTEM_NAME STREQUAL "GBA")
+    list(APPEND SOURCES
+        src/gba_input.cpp
+        src/gba_display.cpp
+    )
+endif()
 
 # Create executable
 add_executable(bpm ${SOURCES})
 
 # Links
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "GBA")
     target_link_libraries(bpm PRIVATE m pthread dl)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "GBA")
+    target_link_libraries(bpm PRIVATE gba)
 endif()

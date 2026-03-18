@@ -11,14 +11,23 @@
 #include "bpm/project_manager.h"
 #include "bpm/kit_manager.h"
 
+#ifdef __GBA__
+#include "bpm/gba_input.h"
+#include "bpm/gba_display.h"
+#include <gba_input.h>
+#include <gba_systemcalls.h>
+#endif
+
 using namespace bpm;
 
 void printHelp() {
+#ifndef __GBA__
     std::cout << "Usage: bpm [options]" << std::endl;
     std::cout << "Options:" << std::endl;
     std::cout << "  -n            Start a new project" << std::endl;
     std::cout << "  -l <name>     Load a project on boot" << std::endl;
     std::cout << "  -h            Show this help" << std::endl;
+#endif
 }
 
 int main(int argc, char** argv) {
@@ -28,6 +37,25 @@ int main(int argc, char** argv) {
     auto projectManager = std::make_shared<ProjectManager>();
     auto kitManager = std::make_shared<KitManager>();
     
+#ifdef __GBA__
+    init_gba_display();
+    GBAInput gba_input;
+    gba_input.Init();
+
+    std::vector<std::string> commands = {
+        "new random beat",
+        "set song_mode on",
+        "set song_mode off",
+        "new random kit",
+        "add random style",
+        "set steps 16",
+        "set steps 32",
+        "exit"
+    };
+    int selected_command = 0;
+    bool needs_redraw = true;
+
+#else
     std::string loadOnBoot = "";
     bool newProject = false;
 
@@ -73,53 +101,61 @@ int main(int argc, char** argv) {
             std::cout << "Loaded project '" << loadOnBoot << "'." << std::endl;
         }
     }
-
     std::cout << "------------------------------------------" << std::endl;
     std::cout << "      BPM Beat Procedure Machine         " << std::endl;
     std::cout << "------------------------------------------" << std::endl;
-    std::cout << "Commands examples:" << std::endl;
-    std::cout << "  - 'save project mybeat'" << std::endl;
-    std::cout << "  - 'load project mybeat'" << std::endl;
-    std::cout << "  - 'save style chill_vibes'" << std::endl;
-    std::cout << "  - 'load style chill_vibes'" << std::endl;
-    std::cout << "  - 'save structure verse_chorus'" << std::endl;
-    std::cout << "  - 'load structure verse_chorus'" << std::endl;
-    std::cout << "  - 'export song masterpiece'" << std::endl;
-    std::cout << "  - 'load song masterpiece'" << std::endl;
-    std::cout << "  - 'set arrangement 0 1 1 2 2 3'" << std::endl;
-    std::cout << "  - 'generate random arrangement'" << std::endl;
-    std::cout << "  - 'list projects/styles/structures/songs'" << std::endl;
-    std::cout << "  - 'savekit mykit'" << std::endl;
-    std::cout << "  - 'loadkit mykit'" << std::endl;
-    std::cout << "  - 'kits'" << std::endl;
-    std::cout << "  - 'newkit'" << std::endl;
-    std::cout << "  - 'clear kit'" << std::endl;
-    std::cout << "  - 'set kit size 8'" << std::endl;
-    std::cout << "  - 'add pattern'" << std::endl;
-    std::cout << "  - 'pattern 1'" << std::endl;
-    std::cout << "  - 'patterns'" << std::endl;
-    std::cout << "  - 'generate full song'" << std::endl;
-    std::cout << "  - 'add random style'" << std::endl;
-    std::cout << "  - 'set song_mode on'" << std::endl;
-    std::cout << "  - 'add simplekick mykick'" << std::endl;
-    std::cout << "  - 'set mykick gain 0.8'" << std::endl;
-    std::cout << "  - 'set mykick pan 0.2'" << std::endl;
-    std::cout << "  - 'set mykick freq 60'" << std::endl;
-    std::cout << "  - 'new random kit'" << std::endl;
-    std::cout << "  - 'new random beat'" << std::endl;
-    std::cout << "  - 'kick on every 4'" << std::endl;
-    std::cout << "  - 'set steps 32'" << std::endl;
-    std::cout << "------------------------------------------" << std::endl;
+#endif
 
     CommandParser parser(sequencer, projectManager, kitManager);
     AudioEngine engine(sequencer);
 
     if (!engine.start()) {
+#ifdef __GBA__
+        gba_println("Could not start audio engine.");
+#else
         std::cerr << "Could not start audio engine." << std::endl;
+#endif
         return 1;
     }
 
     bool running = true;
+
+#ifdef __GBA__
+    while (running) {
+        VBlankIntrWait();
+        gba_input.Update();
+
+        if (gba_input.IsPressed(KEY_DOWN)) {
+            selected_command = (selected_command + 1) % commands.size();
+            needs_redraw = true;
+        }
+        if (gba_input.IsPressed(KEY_UP)) {
+            selected_command = (selected_command - 1 + commands.size()) % commands.size();
+            needs_redraw = true;
+        }
+        if (gba_input.IsPressed(KEY_A)) {
+            const std::string& cmd = commands[selected_command];
+            if (cmd == "exit") {
+                running = false;
+            } else {
+                parser.parse(cmd);
+                // Ideally we'd have a console to see the output.
+                // For now, we just go back to the menu.
+                needs_redraw = true;
+            }
+        }
+        
+        if (gba_input.IsPressed(KEY_B)) {
+            // go back to menu
+            needs_redraw = true;
+        }
+
+        if (needs_redraw) {
+            gba_menu_draw(commands, selected_command);
+            needs_redraw = false;
+        }
+    }
+#else
     std::thread displayThread([&]() {
         while (running) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -141,6 +177,7 @@ int main(int argc, char** argv) {
     if (displayThread.joinable()) {
         displayThread.join();
     }
+#endif
 
     return 0;
 }

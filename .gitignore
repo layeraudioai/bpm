@@ -9,3 +9,4 @@ state.sqlite
 twistd.log
 twistd.pid
 gitpoller-workdir
+GBA

@@ -19339,7 +19339,9 @@ Dynamic Linking
 #ifdef MA_POSIX
     /* No need for dlfcn.h if we're not using runtime linking. */
     #ifndef MA_NO_RUNTIME_LINKING
-        #include <dlfcn.h>
+        #ifndef 3DS
+            #include <dlfcn.h>
+        #endif
     #endif
 #endif
 
