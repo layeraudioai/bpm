@@ -1,8 +1,7 @@
+#ifndef __GBA__
 #define MINIAUDIO_IMPLEMENTATION
-#ifndef GBA
-    #include "miniaudio.h"
-#endif
 #include "bpm/audio_engine.h"
+#include "miniaudio.h"
 #include <iostream>
 
 namespace bpm {
@@ -54,3 +53,24 @@ void AudioEngine::audioCallback(ma_device* pDevice, void* pOutput, const void* p
 }
 
 } // namespace bpm
+#else
+#include "bpm/audio_engine.h"
+#include "synth.h"
+
+namespace bpm {
+
+AudioEngine::AudioEngine(std::shared_ptr<Sequencer> sequencer)
+    : sequencer(sequencer) {
+    synth_init();
+    running = false;
+}
+
+AudioEngine::~AudioEngine() {
+    // GBA synth uninit
+}
+
+bool AudioEngine::start() { running = true; return true; }
+void AudioEngine::stop() { running = false; }
+
+} // namespace bpm
+#endif // __GBA__

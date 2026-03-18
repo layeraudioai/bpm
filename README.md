@@ -41,3 +41,4 @@ While running, you can type commands:
 
 - copyright 2026 xbcx google
 miniaudio license in third_party/miniaudio.h
+synthGBA used as basis for GBA make and synth
