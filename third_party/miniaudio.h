@@ -3892,7 +3892,18 @@ typedef ma_uint16 wchar_t;
     #define MA_NO_RUNTIME_LINKING
     #endif
 #endif
-#if !defined(MA_WIN32) && !defined(MA_DOS)    /* If it's not Win32, assume POSIX. */
+#if defined(__GBA__) || defined(__gba__)
+    #define MA_GBA
+
+    #ifndef MA_NO_THREADING
+    #define MA_NO_THREADING
+    #endif
+
+    #ifndef MA_NO_RUNTIME_LINKING
+    #define MA_NO_RUNTIME_LINKING
+    #endif
+#endif
+#if !defined(MA_WIN32) && !defined(MA_DOS) && !defined(MA_GBA)    /* If it's not Win32, assume POSIX. */
     #define MA_POSIX
 
     #if !defined(MA_NO_THREADING)
@@ -19331,7 +19342,7 @@ Dynamic Linking
 *******************************************************************************/
 /* Disable run-time linking on certain backends and platforms. */
 #ifndef MA_NO_RUNTIME_LINKING
-    #if defined(MA_EMSCRIPTEN) || defined(MA_ORBIS) || defined(MA_PROSPERO) || defined(MA_SWITCH) || defined(MA_DOS)
+    #if defined(MA_EMSCRIPTEN) || defined(MA_ORBIS) || defined(MA_PROSPERO) || defined(MA_SWITCH) || defined(MA_DOS) || defined(MA_GBA)
         #define MA_NO_RUNTIME_LINKING
     #endif
 #endif
@@ -19339,7 +19350,7 @@ Dynamic Linking
 #ifdef MA_POSIX
     /* No need for dlfcn.h if we're not using runtime linking. */
     #ifndef MA_NO_RUNTIME_LINKING
-        #ifndef 3DS
+        #if !defined(MA_3DS) && !defined(MA_GBA)
             #include <dlfcn.h>
         #endif
     #endif

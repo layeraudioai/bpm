@@ -1,5 +1,7 @@
 #define MINIAUDIO_IMPLEMENTATION
-#include "miniaudio.h"
+#ifndef GBA
+    #include "miniaudio.h"
+#endif
 #include "bpm/audio_engine.h"
 #include <iostream>
 
