@@ -82,6 +82,12 @@ int main(int argc, char** argv) {
     std::cout << "  - 'loadkit mykit'" << std::endl;
     std::cout << "  - 'kits'" << std::endl;
     std::cout << "  - 'newkit'" << std::endl;
+    std::cout << "  - 'clear kit'" << std::endl;
+    std::cout << "  - 'set kit size 8'" << std::endl;
+    std::cout << "  - 'add simplekick mykick'" << std::endl;
+    std::cout << "  - 'set mykick gain 0.8'" << std::endl;
+    std::cout << "  - 'set mykick pan 0.2'" << std::endl;
+    std::cout << "  - 'set mykick freq 60'" << std::endl;
     std::cout << "  - 'new random kit'" << std::endl;
     std::cout << "  - 'new random beat'" << std::endl;
     std::cout << "  - 'kick on every 4'" << std::endl;

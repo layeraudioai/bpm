@@ -24,19 +24,16 @@ bool KitManager::save(std::shared_ptr<Kit> kit) {
 
     file << "# Kit: " << kit->getName() << std::endl << std::endl;
 
-    for (const auto& channel : kit->getAllParams()) {
-        std::string channelName = channel.ToString();
-        const auto& params = channel.params;
-        std::transform(channelName.begin(), channelName.end(), channelName.begin(),
-                       [](unsigned char c){ return std::tolower(c); });
-        std::replace(channelName.begin(), channelName.end(), ' ', '_');
+    for (const auto& instrument : kit->getInstruments()) {
+        const auto& params = instrument.params;
 
-        file << "[" << channelName << "]" << std::endl;
+        file << "[instrument]" << std::endl;
+        file << "name=" << instrument.name << std::endl;
         file << "type=" << params.type << std::endl;
-        if (params.frequency > 0) {
-            file << "frequency=" << params.frequency << std::endl;
-        }
+        file << "frequency=" << params.frequency << std::endl;
         file << "decay=" << params.decay << std::endl;
+        file << "gain=" << params.gain << std::endl;
+        file << "pan=" << params.pan << std::endl;
         file << std::endl;
     }
     
@@ -87,6 +84,10 @@ std::shared_ptr<Kit> KitManager::load(const std::string& name) {
                 currentParams.frequency = std::stof(value);
             } else if (paramName == "decay") {
                 currentParams.decay = std::stof(value);
+            } else if (paramName == "gain") {
+                currentParams.gain = std::stof(value);
+            } else if (paramName == "pan") {
+                currentParams.pan = std::stof(value);
             }
         }
     }

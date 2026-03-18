@@ -17,6 +17,8 @@ struct DrumSynthParams {
     std::string type;
     float frequency = 220.0f;
     float decay = 0.5f; // in seconds
+    float gain = 1.0f;   // 0.0 to 1.0+
+    float pan = 0.5f;    // 0.0 (left) to 1.0 (right)
 };
 
 class Kit {
@@ -33,9 +35,13 @@ public:
     void setName(const std::string& newName);
 
     void addInstrument(const std::string& name, const DrumSynthParams& params);
+    void setParams(size_t index, const DrumSynthParams& params);
     const DrumSynthParams& getParams(size_t index) const;
     const std::vector<Instrument>& getInstruments() const;
     const std::vector<Instrument>& getAllParams() const;
+
+    void clearInstruments();
+    void removeInstrument(size_t index);
 
     static std::shared_ptr<Kit> createDefaultKit();
     static std::unique_ptr<DrumSynth> createSynth(const DrumSynthParams& params);
@@ -51,7 +57,7 @@ public:
     DrumSynth(const DrumSynthParams& params);
     virtual ~DrumSynth() = default;
     virtual void trigger();
-    virtual float process(float sampleRate) = 0;
+    virtual void process(float sampleRate, float* left, float* right) = 0;
 
 protected:
     DrumSynthParams params;
@@ -62,7 +68,7 @@ protected:
 class SimpleKick : public DrumSynth {
 public:
     SimpleKick(const DrumSynthParams& params);
-    float process(float sampleRate) override;
+    void process(float sampleRate, float* left, float* right) override;
 private:
     float phase = 0.0f;
 };
@@ -70,19 +76,19 @@ private:
 class SimpleSnare : public DrumSynth {
 public:
     SimpleSnare(const DrumSynthParams& params);
-    float process(float sampleRate) override;
+    void process(float sampleRate, float* left, float* right) override;
 };
 
 class SimpleHat : public DrumSynth {
 public:
     SimpleHat(const DrumSynthParams& params);
-    float process(float sampleRate) override;
+    void process(float sampleRate, float* left, float* right) override;
 };
 
 class SimpleTom : public DrumSynth {
 public:
     SimpleTom(const DrumSynthParams& params);
-    float process(float sampleRate) override;
+    void process(float sampleRate, float* left, float* right) override;
 private:
     float phase = 0.0f;
 };
@@ -90,7 +96,7 @@ private:
 class SimpleCymbal : public DrumSynth {
 public:
     SimpleCymbal(const DrumSynthParams& params);
-    float process(float sampleRate) override;
+    void process(float sampleRate, float* left, float* right) override;
 };
 
 } // namespace bpm

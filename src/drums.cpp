@@ -21,6 +21,13 @@ void Kit::addInstrument(const std::string& name, const DrumSynthParams& params) 
     instruments.push_back({name, params});
 }
 
+void Kit::setParams(size_t index, const DrumSynthParams& params) {
+    if (index >= instruments.size()) {
+        throw std::out_of_range("Instrument index out of range");
+    }
+    instruments[index].params = params;
+}
+
 const DrumSynthParams& Kit::getParams(size_t index) const {
     if (index >= instruments.size()) {
         throw std::out_of_range("Instrument index out of range");
@@ -36,22 +43,32 @@ const std::vector<Kit::Instrument>& Kit::getAllParams() const {
     return instruments;
 }
 
+void Kit::clearInstruments() {
+    instruments.clear();
+}
+
+void Kit::removeInstrument(size_t index) {
+    if (index < instruments.size()) {
+        instruments.erase(instruments.begin() + index);
+    }
+}
+
 std::shared_ptr<Kit> Kit::createDefaultKit() {
     auto kit = std::make_shared<Kit>("default");
 
-    kit->addInstrument("KickLeft",     {"simplekick", 120.0f, 0.5f});
-    kit->addInstrument("KickRight",    {"simplekick", 120.0f, 0.5f});
-    kit->addInstrument("SnareClosed",  {"simplesnare", 0.0f, 0.2f});
-    kit->addInstrument("SnareOpen",    {"simplesnare", 0.0f, 0.4f});
-    kit->addInstrument("SnareRim",     {"simplesnare", 0.0f, 0.1f});
-    kit->addInstrument("ClosedHat",    {"simplehat", 0.0f, 0.1f});
-    kit->addInstrument("OpenHat",      {"simplehat", 0.0f, 0.5f});
-    kit->addInstrument("OpeningHat",   {"simplehat", 0.0f, 0.3f});
-    kit->addInstrument("Crash",        {"simplecymbal", 0.0f, 1.5f});
-    kit->addInstrument("Ride",         {"simplecymbal", 0.0f, 2.0f});
-    kit->addInstrument("SmallTom",     {"simpletom", 300.0f, 0.3f});
-    kit->addInstrument("MidTom",       {"simpletom", 250.0f, 0.4f});
-    kit->addInstrument("HighTom",      {"simpletom", 200.0f, 0.5f});
+    kit->addInstrument("KickLeft",     {"simplekick", 120.0f, 0.5f, 1.0f, 0.4f});
+    kit->addInstrument("KickRight",    {"simplekick", 120.0f, 0.5f, 1.0f, 0.6f});
+    kit->addInstrument("SnareClosed",  {"simplesnare", 0.0f, 0.2f, 0.8f, 0.5f});
+    kit->addInstrument("SnareOpen",    {"simplesnare", 0.0f, 0.4f, 0.8f, 0.5f});
+    kit->addInstrument("SnareRim",     {"simplesnare", 0.0f, 0.1f, 0.6f, 0.5f});
+    kit->addInstrument("ClosedHat",    {"simplehat", 0.0f, 0.1f, 0.5f, 0.3f});
+    kit->addInstrument("OpenHat",      {"simplehat", 0.0f, 0.5f, 0.5f, 0.3f});
+    kit->addInstrument("OpeningHat",   {"simplehat", 0.0f, 0.3f, 0.5f, 0.3f});
+    kit->addInstrument("Crash",        {"simplecymbal", 0.0f, 1.5f, 0.7f, 0.2f});
+    kit->addInstrument("Ride",         {"simplecymbal", 0.0f, 2.0f, 0.7f, 0.8f});
+    kit->addInstrument("SmallTom",     {"simpletom", 300.0f, 0.3f, 0.8f, 0.4f});
+    kit->addInstrument("MidTom",       {"simpletom", 250.0f, 0.4f, 0.8f, 0.5f});
+    kit->addInstrument("HighTom",      {"simpletom", 200.0f, 0.5f, 0.8f, 0.6f});
     
     return kit;
 }
@@ -83,8 +100,11 @@ void DrumSynth::trigger() {
 // --- SimpleKick ---
 SimpleKick::SimpleKick(const DrumSynthParams& params) : DrumSynth(params), phase(0.0f) {}
 
-float SimpleKick::process(float sampleRate) {
-    if (!active) return 0.0f;
+void SimpleKick::process(float sampleRate, float* left, float* right) {
+    if (!active) {
+        *left = *right = 0.0f;
+        return;
+    }
 
     // Pitch envelope
     float pitch_env = env > 0.5f ? (2.0f * env - 1.0f) : 0.0f; // fast drop at the beginning
@@ -94,7 +114,9 @@ float SimpleKick::process(float sampleRate) {
     phase += (2.0f * M_PI * current_freq) / sampleRate;
     if (phase > 2.0f * M_PI) phase -= 2.0f * M_PI;
 
-    float output = val * env;
+    float mono = val * env * params.gain;
+    *left = mono * (1.0f - params.pan);
+    *right = mono * params.pan;
     
     // Amplitude envelope
     env -= (1.0f / (params.decay * sampleRate));
@@ -103,18 +125,21 @@ float SimpleKick::process(float sampleRate) {
         env = 0.0f;
         active = false;
     }
-    
-    return output;
 }
 
 // --- SimpleSnare ---
 SimpleSnare::SimpleSnare(const DrumSynthParams& params) : DrumSynth(params) {}
 
-float SimpleSnare::process(float sampleRate) {
-    if (!active) return 0.0f;
+void SimpleSnare::process(float sampleRate, float* left, float* right) {
+    if (!active) {
+        *left = *right = 0.0f;
+        return;
+    }
     
     float noise = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)) * 2.0f - 1.0f;
-    float output = noise * env;
+    float mono = noise * env * params.gain;
+    *left = mono * (1.0f - params.pan);
+    *right = mono * params.pan;
 
     env -= (1.0f / (params.decay * sampleRate));
 
@@ -122,18 +147,21 @@ float SimpleSnare::process(float sampleRate) {
         env = 0.0f;
         active = false;
     }
-    
-    return output;
 }
 
 // --- SimpleHat ---
 SimpleHat::SimpleHat(const DrumSynthParams& params) : DrumSynth(params) {}
 
-float SimpleHat::process(float sampleRate) {
-    if (!active) return 0.0f;
+void SimpleHat::process(float sampleRate, float* left, float* right) {
+    if (!active) {
+        *left = *right = 0.0f;
+        return;
+    }
     
     float noise = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)) * 2.0f - 1.0f;
-    float output = noise * env;
+    float mono = noise * env * params.gain;
+    *left = mono * (1.0f - params.pan);
+    *right = mono * params.pan;
     
     env -= (1.0f / (params.decay * sampleRate));
 
@@ -141,15 +169,16 @@ float SimpleHat::process(float sampleRate) {
         env = 0.0f;
         active = false;
     }
-    
-    return output;
 }
 
 // --- SimpleTom ---
 SimpleTom::SimpleTom(const DrumSynthParams& params) : DrumSynth(params), phase(0.0f) {}
 
-float SimpleTom::process(float sampleRate) {
-    if (!active) return 0.0f;
+void SimpleTom::process(float sampleRate, float* left, float* right) {
+    if (!active) {
+        *left = *right = 0.0f;
+        return;
+    }
 
     // Pitch envelope
     float pitch_env = env > 0.8f ? (5.0f * env - 4.0f) : 0.0f;
@@ -159,7 +188,9 @@ float SimpleTom::process(float sampleRate) {
     phase += (2.0f * M_PI * current_freq) / sampleRate;
     if (phase > 2.0f * M_PI) phase -= 2.0f * M_PI;
 
-    float output = val * env;
+    float mono = val * env * params.gain;
+    *left = mono * (1.0f - params.pan);
+    *right = mono * params.pan;
     
     env -= (1.0f / (params.decay * sampleRate));
 
@@ -167,21 +198,24 @@ float SimpleTom::process(float sampleRate) {
         env = 0.0f;
         active = false;
     }
-    
-    return output;
 }
 
 // --- SimpleCymbal ---
 SimpleCymbal::SimpleCymbal(const DrumSynthParams& params) : DrumSynth(params) {}
 
-float SimpleCymbal::process(float sampleRate) {
-    if (!active) return 0.0f;
+void SimpleCymbal::process(float sampleRate, float* left, float* right) {
+    if (!active) {
+        *left = *right = 0.0f;
+        return;
+    }
     
     float noise1 = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX));
     float noise2 = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX));
     float noise = (noise1 - noise2);
 
-    float output = noise * env;
+    float mono = noise * env * params.gain;
+    *left = mono * (1.0f - params.pan);
+    *right = mono * params.pan;
 
     env -= (1.0f / (params.decay * sampleRate));
 
@@ -189,8 +223,6 @@ float SimpleCymbal::process(float sampleRate) {
         env = 0.0f;
         active = false;
     }
-    
-    return output;
 }
 
 } // namespace bpm

@@ -115,8 +115,6 @@ void Sequencer::process(float sampleRate, int numSamples, float* outputBuffer) {
     updateTiming(sampleRate);
 
     for (int s = 0; s < numSamples; ++s) {
-        float mixedSample = 0.0f;
-
         // Advance sequencer clock
         sampleCounter += 1.0f;
         if (sampleCounter >= samplesPerStep) {
@@ -132,19 +130,26 @@ void Sequencer::process(float sampleRate, int numSamples, float* outputBuffer) {
         }
 
         // Process synths and mix
+        float leftSum = 0.0f;
+        float rightSum = 0.0f;
         for (size_t t = 0; t < synths.size(); ++t) {
             if (synths[t]) {
-                mixedSample += synths[t]->process(sampleRate);
+                float left = 0.0f, right = 0.0f;
+                synths[t]->process(sampleRate, &left, &right);
+                leftSum += left;
+                rightSum += right;
             }
         }
 
         // Clip/Limit (very basic)
-        if (mixedSample > 1.0f) mixedSample = 1.0f;
-        if (mixedSample < -1.0f) mixedSample = -1.0f;
+        if (leftSum > 1.0f) leftSum = 1.0f;
+        if (leftSum < -1.0f) leftSum = -1.0f;
+        if (rightSum > 1.0f) rightSum = 1.0f;
+        if (rightSum < -1.0f) rightSum = -1.0f;
 
         // Store in buffer (stereo interleaved)
-        outputBuffer[s * 2] = mixedSample;
-        outputBuffer[s * 2 + 1] = mixedSample;
+        outputBuffer[s * 2] = leftSum;
+        outputBuffer[s * 2 + 1] = rightSum;
     }
 }
 
