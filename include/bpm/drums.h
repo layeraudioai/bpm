@@ -1,12 +1,17 @@
 #pragma once
 
 #include <vector>
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include <string>
 #include <memory>
 #include "bpm/kit.h"
 
 namespace bpm {
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 // --- Drum Synths ---
 class DrumSynth {

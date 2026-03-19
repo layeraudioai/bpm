@@ -18,6 +18,11 @@ namespace bpm {
         SMALL_TOM,
         MID_TOM,
         HIGH_TOM,
+        MELODY_1,
+        MELODY_2,
+        MELODY_3,
+        MELODY_4,
+        MELODY_5,
         COUNT
     };
 
