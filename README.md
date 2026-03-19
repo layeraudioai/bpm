@@ -39,6 +39,7 @@ While running, you can type commands:
 - `<drum> on every <interval>`: e.g., `kick on every 4`.
 - `<drum> on <step1> <step2> ...`: e.g., `snare on 5 13`.
 
+#
 - copyright 2026 xbcx google
 miniaudio license in third_party/miniaudio.h
 synthGBA used as basis for GBA make and synth
