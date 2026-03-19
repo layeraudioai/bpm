@@ -1,5 +1,7 @@
 #include "bpm/kit.h"
 #include "bpm/drums.h"
+#include "bpm/melody.h"
+#include <cstdlib>
 
 namespace bpm {
 
@@ -8,6 +10,12 @@ Kit::Kit() {
     for (uint8_t i = 0; i < (uint8_t)DrumChannel::COUNT; ++i) {
         _params[(DrumChannel)i] = DrumSynthParameters();
     }
+
+    // Generate a default random melody and apply it to the kit parameters.
+    // This ensures the kit starts with a valid set of melody notes.
+    Melody defaultMelody;
+    // defaultMelody constructor calls randomize()
+    defaultMelody.applyToKit(*this);
 }
 
 DrumSynthParameters& Kit::operator[](DrumChannel channel) {
@@ -78,6 +86,11 @@ std::string Kit::channelToString(DrumChannel channel) {
         case DrumChannel::SMALL_TOM: return "SMALL_TOM";
         case DrumChannel::MID_TOM: return "MID_TOM";
         case DrumChannel::HIGH_TOM: return "HIGH_TOM";
+        case DrumChannel::MELODY_1: return "MELODY_1";
+        case DrumChannel::MELODY_2: return "MELODY_2";
+        case DrumChannel::MELODY_3: return "MELODY_3";
+        case DrumChannel::MELODY_4: return "MELODY_4";
+        case DrumChannel::MELODY_5: return "MELODY_5";
         default: return "UNKNOWN";
     }
 }
@@ -96,6 +109,11 @@ DrumChannel Kit::stringToChannel(const std::string& s) {
     if (s == "SMALL_TOM") return DrumChannel::SMALL_TOM;
     if (s == "MID_TOM") return DrumChannel::MID_TOM;
     if (s == "HIGH_TOM") return DrumChannel::HIGH_TOM;
+    if (s == "MELODY_1") return DrumChannel::MELODY_1;
+    if (s == "MELODY_2") return DrumChannel::MELODY_2;
+    if (s == "MELODY_3") return DrumChannel::MELODY_3;
+    if (s == "MELODY_4") return DrumChannel::MELODY_4;
+    if (s == "MELODY_5") return DrumChannel::MELODY_5;
     return DrumChannel::COUNT;
 }
 

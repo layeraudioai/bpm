@@ -11,11 +11,9 @@
 #include "bpm/kit_manager.h"
 
 #ifdef __GBA__
+#include <gba.h>
 #include "bpm/gba_input.h"
 #include "bpm/gba_display.h"
-#include <gba_systemcalls.h>
-#include <gba_input.h>
-#include <gba_interrupt.h>
 #endif
 #ifndef __GBA__
 #include <iostream>
@@ -34,33 +32,33 @@ void printHelp() {
 }
 
 int main(int argc, char** argv) {
+#ifdef __GBA__
+    irqInit();
+    irqEnable(IRQ_VBLANK);
+    init_gba_display();
+    gba_println("BPM for GBA - V2");
+    gba_println("Press A to continue...");
+    
+    GBAInput gba_input;
+    gba_input.Init();
+
+    while (true) {
+        VBlankIntrWait();
+        gba_input.Update();
+        if (gba_input.IsPressed(KEY_A)) {
+            gba_println("A pressed! Loading...");
+            break;
+        }
+    }
+#else
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
+#endif
 
     auto sequencer = std::make_shared<Sequencer>();
     auto projectManager = std::make_shared<ProjectManager>();
     auto kitManager = std::make_shared<KitManager>();
     
-#ifdef __GBA__
-    irqInit();
-    irqEnable(IRQ_VBLANK);
-    init_gba_display();
-    GBAInput gba_input;
-    gba_input.Init();
-
-    std::vector<std::string> commands = {
-        "new random beat",
-        "set song_mode on",
-        "set song_mode off",
-        "new random kit",
-        "add random style",
-        "set steps 16",
-        "set steps 32",
-        "exit"
-    };
-    int selected_command = 0;
-    bool needs_redraw = true;
-
-#else
+#ifndef __GBA__
     std::string loadOnBoot = "";
     bool newProject = false;
 
@@ -119,13 +117,26 @@ int main(int argc, char** argv) {
         gba_println("Could not start audio engine.");
 #else
         std::cerr << "Could not start audio engine." << std::endl;
-#endif
         return 1;
+#endif
     }
 
     bool running = true;
 
 #ifdef __GBA__
+    std::vector<std::string> commands = {
+        "new random beat",
+        "set song_mode on",
+        "set song_mode off",
+        "new random kit",
+        "add random style",
+        "set steps 16",
+        "set steps 32",
+        "exit"
+    };
+    int selected_command = 0;
+    bool needs_redraw = true;
+
     while (running) {
         VBlankIntrWait();
         gba_input.Update();
@@ -143,8 +154,6 @@ int main(int argc, char** argv) {
             if (cmd == "exit") {
                 running = false;
             } else {
-                // Clear the screen to show command output (if any)
-                // then redraw the menu on next B press
                 gba_clear_screen();
                 parser.parse(cmd);
                 gba_println("\nPress B to return to menu");
@@ -152,7 +161,6 @@ int main(int argc, char** argv) {
         }
         
         if (gba_input.IsPressed(KEY_B)) {
-            // go back to menu
             needs_redraw = true;
         }
 

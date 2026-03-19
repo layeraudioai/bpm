@@ -65,7 +65,9 @@ void SimpleSnare::process(float sampleRate, float* left, float* right) {
 }
 
 // --- SimpleHat ---
-SimpleHat::SimpleHat(const DrumSynthParameters& params) : DrumSynth(params) {}
+SimpleHat::SimpleHat(const DrumSynthParameters& params) : DrumSynth(params) {
+    this->params.decay = 0.05f;
+}
 
 void SimpleHat::process(float sampleRate, float* left, float* right) {
     if (!active) {
@@ -74,7 +76,7 @@ void SimpleHat::process(float sampleRate, float* left, float* right) {
     }
     
     float noise = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)) * 2.0f - 1.0f;
-    float mono = noise * env * params.volume;
+    float mono = noise * env * params.volume * 0.3f;
     *left = mono * 0.5f;
     *right = mono * 0.5f;
     
@@ -116,7 +118,9 @@ void SimpleTom::process(float sampleRate, float* left, float* right) {
 }
 
 // --- SimpleCymbal ---
-SimpleCymbal::SimpleCymbal(const DrumSynthParameters& params) : DrumSynth(params) {}
+SimpleCymbal::SimpleCymbal(const DrumSynthParameters& params) : DrumSynth(params) {
+    this->params.decay = 0.5f;
+}
 
 void SimpleCymbal::process(float sampleRate, float* left, float* right) {
     if (!active) {
@@ -126,9 +130,9 @@ void SimpleCymbal::process(float sampleRate, float* left, float* right) {
     
     float noise1 = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX));
     float noise2 = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX));
-    float noise = (noise1 - noise2);
+    float noise = (noise1 - noise2)/2.0f;
 
-    float mono = noise * env * params.volume;
+    float mono = noise * env * params.volume * 0.5f;
     *left = mono * 0.5f;
     *right = mono * 0.5f;
 
