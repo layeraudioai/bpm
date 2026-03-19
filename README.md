@@ -1,27 +1,22 @@
 # BPM Beat Procedure Machine
 
-A 64-step, 13-channel drum sequencer built with C++ and CMake.
+Beat Procedure Machine for multiple platforms
 
 ## Features
-- **13 Channels**: Kick Left, Kick Right, Closed Hat, Open Hat, Opening Hat, Crash, Ride, Small Tom, Mid Tom, High Tom, Snare Closed, Snare Open, Snare Rim.
-- **64 Steps**: Long sequence patterns (4 bars of 16th notes).
+- **Dynamic Number of Channels**: Kick Left, Kick Right, Closed Hat, Open Hat, Opening Hat, Crash, Ride, Small Tom, Mid Tom, High Tom, Snare Closed, Snare Open, Snare Rim, plus beeps to make melodies
+- **Dynamic Number of Steps**: Long sequence patterns allowed.
 - **Synthetic Sounds**: Real-time synthesis of drum voices.
 - **Project Management**: Save and load multiple projects to a library.
 - **English Phrase Input**: Control the machine with natural language.
-- **Low Latency**: Powered by `miniaudio`.
+- **Low Latency**: Powered by `miniaudio` or `libSynthGBA` right now.
 
 ## Build Instructions
 
 To build the project:
 
-```bash
-mkdir -p build
-cd build
-CC=clang-15 CXX=clang++-15 CFLAGS="-fuse-ld=gold" CXXFLAGS="-fuse-ld=gold" cmake ..
-make -j$(nproc)
-```
+make -f Makefile.{platform}
 
-## Running
+## Running on PC
 
 ### Boot Options
 - `./bpm -n`: Start a new empty project.
@@ -38,6 +33,14 @@ While running, you can type commands:
 - `faster` / `slower`: Adjust BPM by 10.
 - `<drum> on every <interval>`: e.g., `kick on every 4`.
 - `<drum> on <step1> <step2> ...`: e.g., `snare on 5 13`.
+
+## Running on GBA
+
+### Boot Options
+- boot the rom via a flashcard or multiboot (a gamecube or wii with swiss or homebrewchannel can be used to send via link cable and https://github.com/FIX94/gba-link-cable-rom-sender)
+
+### Using
+- press A once the rom is booted and go from there
 
 #
 - copyright 2026 xbcx && google (gemini)
