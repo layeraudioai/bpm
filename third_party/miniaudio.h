@@ -3904,6 +3904,10 @@ typedef ma_uint16 wchar_t;
     #ifndef MA_NO_RUNTIME_LINKING
     #define MA_NO_RUNTIME_LINKING
     #endif
+
+    #ifndef MA_NO_DEVICE_IO
+    #define MA_NO_DEVICE_IO
+    #endif
 #endif
 #if !defined(MA_WIN32) && !defined(MA_DOS) && !defined(MA_GBA)    /* If it's not Win32, assume POSIX. */
     #define MA_POSIX
