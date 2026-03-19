@@ -1,123 +1,96 @@
 #include "bpm/kit_manager.h"
+#include "bpm/kit.h"
+#include "bpm/sequencer.h"
 #ifndef __GBA__
 #include <fstream>
 #include <iostream>
+#include <filesystem>
 #endif
 #include <algorithm>
-#include <cctype>
+#include <map>
 
 namespace bpm {
 
-KitManager::KitManager(const std::string& kitsDir) : kitsPath(kitsDir) {
+KitManager::KitManager(const std::string& kits_path) : _kits_path(kits_path) {
 #ifndef __GBA__
-    if (!std::filesystem::exists(kitsPath)) {
-        std::filesystem::create_directory(kitsPath);
+    if (!std::filesystem::exists(_kits_path)) {
+        std::filesystem::create_directory(_kits_path);
     }
 #endif
 }
 
-bool KitManager::save(std::shared_ptr<Kit> kit) {
-    if (!kit) return false;
-
+bool KitManager::saveKit(const std::string& name, const Kit& kit) {
 #ifndef __GBA__
-    std::filesystem::path filePath = kitsPath / (kit->getName() + ".kit");
+    std::filesystem::path filePath = std::filesystem::path(_kits_path) / (name + ".kit");
     std::ofstream file(filePath);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open file for writing: " << filePath << std::endl;
-        return false;
+    if (!file.is_open()) return false;
+
+    file << "[kit]" << std::endl;
+    file << "name=" << name << std::endl;
+
+    for (auto it = kit.begin(); it != kit.end(); ++it) {
+        file << "[channel]" << std::endl;
+        file << "id=" << Kit::channelToString(it->first) << std::endl;
+        file << "frequency=" << it->second.frequency << std::endl;
+        file << "decay=" << it->second.decay << std::endl;
+        file << "tone=" << it->second.tone << std::endl;
+        file << "noise=" << it->second.noise << std::endl;
+        file << "volume=" << it->second.volume << std::endl;
     }
-
-    file << "# Kit: " << kit->getName() << std::endl << std::endl;
-
-    for (const auto& instrument : kit->getInstruments()) {
-        const auto& params = instrument.params;
-
-        file << "[instrument]" << std::endl;
-        file << "name=" << instrument.name << std::endl;
-        file << "type=" << params.type << std::endl;
-        file << "frequency=" << params.frequency << std::endl;
-        file << "decay=" << params.decay << std::endl;
-        file << "gain=" << params.gain << std::endl;
-        file << "pan=" << params.pan << std::endl;
-        file << std::endl;
-    }
-    
-    std::cout << "Kit '" << kit->getName() << "' saved to " << filePath << std::endl;
     return true;
 #else
     return false;
 #endif
 }
 
-std::shared_ptr<Kit> KitManager::load(const std::string& name) {
+bool KitManager::loadKit(const std::string& name, Sequencer& sequencer) {
 #ifndef __GBA__
-    std::filesystem::path filePath = kitsPath / (name + ".kit");
-    if (!std::filesystem::exists(filePath)) {
-        std::cerr << "Error: Kit file not found: " << filePath << std::endl;
-        return nullptr;
-    }
+    std::filesystem::path filePath = std::filesystem::path(_kits_path) / (name + ".kit");
+    if (!std::filesystem::exists(filePath)) return false;
 
-    auto kit = std::make_shared<Kit>(name);
+    auto kit = std::make_shared<Kit>();
     std::ifstream file(filePath);
     std::string line;
-    
-    std::string currentInstrumentName;
-    DrumSynthParams currentParams;
-    bool readingInstrument = false;
+    DrumChannel currentChannel = DrumChannel::COUNT;
 
     while (std::getline(file, line)) {
         if (line.empty() || line[0] == '#') continue;
-
         if (line[0] == '[' && line.back() == ']') {
             std::string section = line.substr(1, line.length() - 2);
-            if (section == "instrument") {
-                if (readingInstrument) {
-                    kit->addInstrument(currentInstrumentName, currentParams);
-                }
-                readingInstrument = true;
-                currentInstrumentName = "unnamed";
-                currentParams = DrumSynthParams();
-            }
-        } else if (readingInstrument) {
+            if (section == "channel") currentChannel = DrumChannel::COUNT;
+        } else {
             size_t eqPos = line.find('=');
             if (eqPos == std::string::npos) continue;
+            std::string key = line.substr(0, eqPos);
+            std::string val = line.substr(eqPos + 1);
 
-            std::string paramName = line.substr(0, eqPos);
-            std::string value = line.substr(eqPos + 1);
-
-            if (paramName == "name") {
-                currentInstrumentName = value;
-            } else if (paramName == "type") {
-                currentParams.type = value;
-            } else if (paramName == "frequency") {
-                currentParams.frequency = std::stof(value);
-            } else if (paramName == "decay") {
-                currentParams.decay = std::stof(value);
-            } else if (paramName == "gain") {
-                currentParams.gain = std::stof(value);
-            } else if (paramName == "pan") {
-                currentParams.pan = std::stof(value);
+            if (key == "id") {
+                currentChannel = Kit::stringToChannel(val);
+            } else if (currentChannel != DrumChannel::COUNT) {
+                auto& p = (*kit)[currentChannel];
+                if (key == "frequency") p.frequency = std::atof(val.c_str());
+                else if (key == "decay") p.decay = std::atof(val.c_str());
+                else if (key == "tone") p.tone = std::atof(val.c_str());
+                else if (key == "noise") p.noise = std::atof(val.c_str());
+                else if (key == "volume") p.volume = std::atof(val.c_str());
             }
         }
     }
-    
-    if (readingInstrument) {
-        kit->addInstrument(currentInstrumentName, currentParams);
-    }
-
-    std::cout << "Kit '" << name << "' loaded." << std::endl;
-    return kit;
+    sequencer.loadKit(kit);
+    return true;
 #else
-    return nullptr;
+    return false;
 #endif
 }
 
 std::vector<std::string> KitManager::listKits() {
     std::vector<std::string> kits;
 #ifndef __GBA__
-    for (const auto& entry : std::filesystem::directory_iterator(kitsPath)) {
-        if (entry.is_regular_file() && entry.path().extension() == ".kit") {
-            kits.push_back(entry.path().stem().string());
+    if (std::filesystem::exists(_kits_path)) {
+        for (const auto& entry : std::filesystem::directory_iterator(_kits_path)) {
+            if (entry.is_regular_file() && entry.path().extension() == ".kit") {
+                kits.push_back(entry.path().stem().string());
+            }
         }
     }
 #endif

@@ -1,4 +1,5 @@
 #include "bpm/project_manager.h"
+#include "bpm/kit.h"
 #ifndef __GBA__
 #include <fstream>
 #include <iostream>
@@ -22,14 +23,13 @@ void saveKitToStream(std::ostream& os, std::shared_ptr<Kit> kit) {
 #ifndef __GBA__
     if (!kit) return;
     os << "[kit]\n";
-    os << "name=" << kit->getName() << "\n";
-    const auto& instruments = kit->getInstruments();
-    os << instruments.size() << "\n";
-    for (const auto& inst : instruments) {
-        os << inst.name << "," << inst.params.type << "," 
-           << inst.params.frequency << "," << inst.params.decay << ","
-           << inst.params.gain << "," << inst.params.pan << "\n";
+    for (auto it = kit->begin(); it != kit->end(); ++it) {
+        os << Kit::channelToString(it->first) << ","
+           << it->second.frequency << "," << it->second.decay << ","
+           << it->second.tone << "," << it->second.noise << ","
+           << it->second.volume << "\n";
     }
+    os << "[endkit]\n";
 #endif
 }
 
@@ -39,33 +39,26 @@ void loadKitFromStream(std::istream& is, Sequencer& sequencer) {
     std::string line;
     if (!std::getline(is, line) || line != "[kit]") return;
     
-    std::string kitName = "unknown";
-    if (std::getline(is, line) && line.find("name=") == 0) {
-        kitName = line.substr(5);
-    }
-
-    auto kit = std::make_shared<Kit>(kitName);
-    size_t numInst = 0;
-    if (std::getline(is, line)) numInst = std::stoul(line);
-
-    for (size_t i = 0; i < numInst; ++i) {
-        if (!std::getline(is, line)) break;
+    auto kit = std::make_shared<Kit>();
+    while (std::getline(is, line) && line != "[endkit]") {
         std::stringstream ss(line);
-        std::string name, type, freq, decay, gain, pan;
-        std::getline(ss, name, ',');
-        std::getline(ss, type, ',');
+        std::string id, freq, decay, tone, noise, volume;
+        std::getline(ss, id, ',');
         std::getline(ss, freq, ',');
         std::getline(ss, decay, ',');
-        std::getline(ss, gain, ',');
-        std::getline(ss, pan, ',');
+        std::getline(ss, tone, ',');
+        std::getline(ss, noise, ',');
+        std::getline(ss, volume, ',');
         
-        DrumSynthParams p;
-        p.type = type;
-        p.frequency = std::stof(freq);
-        p.decay = std::stof(decay);
-        p.gain = std::stof(gain);
-        p.pan = std::stof(pan);
-        kit->addInstrument(name, p);
+        DrumChannel ch = Kit::stringToChannel(id);
+        if (ch != DrumChannel::COUNT) {
+            auto& p = (*kit)[ch];
+            p.frequency = std::atof(freq.c_str());
+            p.decay = std::atof(decay.c_str());
+            p.tone = std::atof(tone.c_str());
+            p.noise = std::atof(noise.c_str());
+            p.volume = std::atof(volume.c_str());
+        }
     }
     sequencer.loadKit(kit);
 #endif
@@ -91,14 +84,16 @@ void loadArrangementFromStream(std::istream& is, Sequencer& sequencer) {
     if (!std::getline(is, line) || line != "[arrangement]") return;
     
     size_t size = 0;
-    if (std::getline(is, line)) size = std::stoul(line);
+    if (std::getline(is, line)) {
+        size = std::strtoul(line.c_str(), nullptr, 10);
+    }
     
     std::vector<int> arr;
     if (size > 0 && std::getline(is, line)) {
         std::stringstream ss(line);
         std::string val;
         while (std::getline(ss, val, ',')) {
-            arr.push_back(std::stoi(val));
+            arr.push_back(std::atoi(val.c_str()));
         }
     }
     sequencer.setArrangement(arr);
@@ -130,13 +125,16 @@ void loadPatternsFromStream(std::istream& is, Sequencer& sequencer) {
     if (!std::getline(is, line) || line != "[patterns]") return;
     
     size_t numPatterns = 0;
-    if (std::getline(is, line)) numPatterns = std::stoul(line);
+    if (std::getline(is, line)) {
+        numPatterns = std::strtoul(line.c_str(), nullptr, 10);
+    }
 
     std::vector<std::vector<uint64_t>> allPatterns;
     for (size_t p = 0; p < numPatterns; ++p) {
         size_t numTracks = 0;
         if (!std::getline(is, line)) break;
-        numTracks = std::stoul(line);
+        numTracks = std::strtoul(line.c_str(), nullptr, 10);
+        
         std::vector<uint64_t> grid(numTracks, 0);
         for (size_t t = 0; t < numTracks; ++t) {
             if (!std::getline(is, line)) break;
@@ -175,7 +173,7 @@ bool ProjectManager::load(const std::string& name, Sequencer& sequencer) {
 
     std::string line;
     if (!std::getline(ifs, line)) return false;
-    sequencer.setBPM(std::stof(line));
+    sequencer.setBPM(std::atof(line.c_str()));
     sequencer.setReadOnly(false);
 
     loadKitFromStream(ifs, sequencer);
@@ -271,7 +269,7 @@ bool ProjectManager::loadSong(const std::string& name, Sequencer& sequencer) {
     if (!std::getline(ifs, line) || line != "READONLY") return false;
     
     if (!std::getline(ifs, line)) return false;
-    sequencer.setBPM(std::stof(line));
+    sequencer.setBPM(std::atof(line.c_str()));
     sequencer.setReadOnly(true);
 
     loadKitFromStream(ifs, sequencer);
@@ -286,9 +284,11 @@ bool ProjectManager::loadSong(const std::string& name, Sequencer& sequencer) {
 std::vector<std::string> ProjectManager::listFiles(const std::string& extension) {
     std::vector<std::string> files;
 #ifndef __GBA__
-    for (const auto& entry : std::filesystem::directory_iterator(projectsPath)) {
-        if (entry.is_regular_file() && entry.path().extension() == extension) {
-            files.push_back(entry.path().stem().string());
+    if (std::filesystem::exists(projectsPath)) {
+        for (const auto& entry : std::filesystem::directory_iterator(projectsPath)) {
+            if (entry.is_regular_file() && entry.path().extension() == extension) {
+                files.push_back(entry.path().stem().string());
+            }
         }
     }
 #endif

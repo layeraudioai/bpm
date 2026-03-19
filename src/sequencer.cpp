@@ -25,29 +25,19 @@ void Sequencer::loadKit(std::shared_ptr<Kit> newKit) {
     
     std::lock_guard<std::mutex> lock(gridMutex);
     
-    // Resize all patterns to match new kit size
-    size_t numInstruments = currentKit->getInstruments().size();
+    // Resize all patterns to match new kit size (DrumChannel::COUNT)
+    size_t numChannels = (size_t)DrumChannel::COUNT;
     for (auto& grid : patterns) {
-        if (grid.size() != numInstruments) {
-            grid.resize(numInstruments, 0);
+        if (grid.size() != numChannels) {
+            grid.resize(numChannels, 0);
         }
     }
 
-    synths.resize(numInstruments);
-    for (size_t i = 0; i < numInstruments; ++i) {
-#ifndef __GBA__
-        try {
-            const auto& params = currentKit->getParams(i);
-            synths[i] = Kit::createSynth(params);
-        } catch (const std::out_of_range& e) {
-            // Should not happen with index iteration
-            std::cerr << "Warning: No params for index " << i << " in kit '" << currentKit->getName() << "'. Using a default kick." << std::endl;
-            synths[i] = Kit::createSynth({"simplekick", 120.0f, 0.5f});
-        }
-#else
-        const auto& params = currentKit->getParams(i);
-        synths[i] = Kit::createSynth(params);
-#endif
+    synths.resize(numChannels);
+    for (size_t i = 0; i < numChannels; ++i) {
+        DrumChannel channel = (DrumChannel)i;
+        const auto& params = currentKit->at(channel);
+        synths[i] = Kit::createSynth(channel, params);
     }
 }
 
@@ -119,8 +109,8 @@ void Sequencer::randomize() {
 
 void Sequencer::addPattern() {
     std::lock_guard<std::mutex> lock(gridMutex);
-    size_t numInstruments = currentKit ? currentKit->getInstruments().size() : 0;
-    patterns.push_back(std::vector<uint64_t>(numInstruments, 0));
+    size_t numChannels = (size_t)DrumChannel::COUNT;
+    patterns.push_back(std::vector<uint64_t>(numChannels, 0));
 }
 
 void Sequencer::removePattern(int index) {
