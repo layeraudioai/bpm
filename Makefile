@@ -1,7 +1,7 @@
 # Compiler and flags
-CXX = clang++-15
+CXX = c++
 CXXFLAGS = -std=c++17 -Iinclude -Ithird_party -Wall -Wextra -pedantic -g
-LDFLAGS = -lm -lpthread -ldl -fuse-ld=lld-15
+LDFLAGS = -lm -lpthread -ldl
 EXECUTABLE = bpm
 
 # Directories

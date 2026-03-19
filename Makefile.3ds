@@ -1,0 +1,102 @@
+# Makefile.3ds for bpm.3dsx
+
+ifeq ($(strip $(DEVKITARM)),)
+$(error "Please set DEVKITARM in your environment. export DEVKITARM=<path to>devkitARM")
+endif
+
+ifeq ($(strip $(DEVKITPRO)),)
+$(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>devkitPro")
+endif
+
+include $(DEVKITARM)/base_tools
+
+# Target name (extension .gba added by rules)
+TARGET      := bpm
+
+# Output dir
+BUILD       := build_3ds
+
+# Source paths
+SRCDIR      := src
+
+LIBCTRU     := $(DEVKITPRO)/libctru
+
+# Include flags
+INCLUDES    := -Iinclude -Ithird_party -I$(LIBCTRU)/include
+
+# Source files (explicitly listed to match CMakeLists.txt)
+CPPFILES    := src/main.cpp \
+               src/sequencer.cpp \
+               src/audio_engine.cpp \
+               src/drums.cpp \
+               src/parser.cpp \
+               src/project_manager.cpp \
+               src/kit_manager.cpp \
+               src/kit.cpp \
+               src/3ds_input.cpp \
+               src/3ds_display.cpp
+
+# Glob third_party sources
+CFILES      := 
+SFILES      :=
+SFILES_UPPER :=
+
+# Object files generation
+OFILES      := $(CPPFILES:%.cpp=$(BUILD)/%.o) \
+               $(CFILES:%.c=$(BUILD)/%.o) \
+               $(SFILES:%.s=$(BUILD)/%.o) \
+               $(SFILES_UPPER:%.S=$(BUILD)/%.o)
+
+# Compiler flags
+# Multiboot images must typically fit in 256KB EWRAM
+ARCH        := -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
+CFLAGS      := -g -Wall -O2 \
+               -mword-relocations \
+               -ffast-math \
+               $(ARCH) \
+               -D__3DS__ -D_3DS \
+               -ffunction-sections -fdata-sections
+
+CXXFLAGS    := $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++17
+
+ASFLAGS     := -g $(ARCH)
+
+LDFLAGS     := -g $(ARCH) -Wl,-Map,$(BUILD)/$(TARGET).map -Wl,--gc-sections -specs=3dsx.specs -L$(LIBCTRU)/lib
+
+LIBS        := -lctru -lm
+
+.PHONY: all clean
+
+all: $(TARGET).3dsx
+
+$(TARGET).3dsx: $(TARGET).elf
+	@echo "  3DSXTOOL $@"
+	@3dsxtool $< $@
+
+$(TARGET).elf: $(OFILES)
+	@echo "  LINK    $@"
+	@$(CXX) $(LDFLAGS) -o $@ $(OFILES) $(LIBS)
+
+$(BUILD)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	@echo "  CXX     $<"
+	@$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+$(BUILD)/%.o: %.c
+	@mkdir -p $(dir $@)
+	@echo "  CC      $<"
+	@$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(BUILD)/%.o: %.s
+	@mkdir -p $(dir $@)
+	@echo "  AS      $<"
+	@$(CC) $(ASFLAGS) $(INCLUDES) -c $< -o $@
+
+$(BUILD)/%.o: %.S
+	@mkdir -p $(dir $@)
+	@echo "  AS      $<"
+	@$(CC) $(ASFLAGS) $(INCLUDES) -c $< -o $@
+
+clean:
+	@echo "  CLEAN"
+	@rm -rf $(BUILD) $(TARGET).elf $(TARGET).3dsx $(TARGET).map

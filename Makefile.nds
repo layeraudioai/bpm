@@ -1,0 +1,102 @@
+# Makefile.nds for bpm.nds
+
+ifeq ($(strip $(DEVKITARM)),)
+$(error "Please set DEVKITARM in your environment. export DEVKITARM=<path to>devkitARM")
+endif
+
+ifeq ($(strip $(DEVKITPRO)),)
+$(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>devkitPro")
+endif
+
+include $(DEVKITARM)/base_tools
+
+# Target name (extension .gba added by rules)
+TARGET      := bpm
+
+# Output dir
+BUILD       := build_nds
+
+# Source paths
+SRCDIR      := src
+
+LIBNDS      := $(DEVKITPRO)/libnds
+
+# Include flags
+INCLUDES    := -Iinclude -Ithird_party -I$(LIBNDS)/include
+
+# Source files (explicitly listed to match CMakeLists.txt)
+CPPFILES    := src/main.cpp \
+               src/sequencer.cpp \
+               src/audio_engine.cpp \
+               src/drums.cpp \
+               src/parser.cpp \
+               src/project_manager.cpp \
+               src/kit_manager.cpp \
+               src/kit.cpp \
+               src/nds_input.cpp \
+               src/nds_display.cpp
+
+# Glob third_party sources
+CFILES      := 
+SFILES      :=
+SFILES_UPPER :=
+
+# Object files generation
+OFILES      := $(CPPFILES:%.cpp=$(BUILD)/%.o) \
+               $(CFILES:%.c=$(BUILD)/%.o) \
+               $(SFILES:%.s=$(BUILD)/%.o) \
+               $(SFILES_UPPER:%.S=$(BUILD)/%.o)
+
+# Compiler flags
+# Multiboot images must typically fit in 256KB EWRAM
+ARCH        := -mthumb -mthumb-interwork -march=armv5te -mtune=arm946e-s -mfloat-abi=soft
+CFLAGS      := -g -Wall -O2 \
+               -mcpu=arm946e-s \
+               -ffast-math \
+               $(ARCH) \
+               -D__NDS__ -DARM9 \
+               -ffunction-sections -fdata-sections
+
+CXXFLAGS    := $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++17
+
+ASFLAGS     := -g $(ARCH)
+
+LDFLAGS     := -g $(ARCH) -Wl,-Map,$(BUILD)/$(TARGET).map -Wl,--gc-sections -specs=ds_arm9.specs -L$(LIBNDS)/lib
+
+LIBS        := -lnds9 -lm
+
+.PHONY: all clean
+
+all: $(TARGET).nds
+
+$(TARGET).nds: $(TARGET).elf
+	@echo "  NDSTOOL $@"
+	@ndstool -c $@ -9 $<
+
+$(TARGET).elf: $(OFILES)
+	@echo "  LINK    $@"
+	@$(CXX) $(LDFLAGS) -o $@ $(OFILES) $(LIBS)
+
+$(BUILD)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	@echo "  CXX     $<"
+	@$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+$(BUILD)/%.o: %.c
+	@mkdir -p $(dir $@)
+	@echo "  CC      $<"
+	@$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(BUILD)/%.o: %.s
+	@mkdir -p $(dir $@)
+	@echo "  AS      $<"
+	@$(CC) $(ASFLAGS) $(INCLUDES) -c $< -o $@
+
+$(BUILD)/%.o: %.S
+	@mkdir -p $(dir $@)
+	@echo "  AS      $<"
+	@$(CC) $(ASFLAGS) $(INCLUDES) -c $< -o $@
+
+clean:
+	@echo "  CLEAN"
+	@rm -rf $(BUILD) $(TARGET).elf $(TARGET).nds $(TARGET).map

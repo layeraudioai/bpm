@@ -33,8 +33,10 @@ CPPFILES    := src/main.cpp \
                src/parser.cpp \
                src/project_manager.cpp \
                src/kit_manager.cpp \
+               src/kit.cpp \
                src/gba_input.cpp \
-               src/gba_display.cpp
+               src/gba_display.cpp \
+               src/melody.cpp
 
 # Glob third_party sources
 CFILES      := $(wildcard $(THIRDPARTY)/*.c) $(wildcard $(THIRDPARTY)/libSynthGBA/*.c) $(wildcard $(THIRDPARTY)/libSynthGBA/source/*.c)

@@ -1,0 +1,37 @@
+# Compiler and flags
+CXX = x86_64-w64-mingw32-g++-posix
+CXXFLAGS = -std=c++17 -Iinclude -Ithird_party -Wall -Wextra -pedantic -g
+LDFLAGS = -static -lm -lpthread -lwinmm -lole32 -luuid
+EXECUTABLE = bpm.exe
+
+# Directories
+SRCDIR = src
+OBJDIR = build_windows
+
+# Find all .cpp files in the source directory
+SOURCES = $(wildcard $(SRCDIR)/*.cpp)
+# Create a list of object files in the object directory
+OBJECTS = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SOURCES))
+
+# The default target, 'all', should be first.
+.PHONY: all
+all: $(EXECUTABLE)
+
+# Rule to link the executable.
+$(EXECUTABLE): $(OBJECTS)
+	$(CXX) $(OBJECTS) -o $@ $(LDFLAGS)
+
+# Rule to compile a .cpp file into a .o file.
+# The `| $(OBJDIR)` part is an order-only prerequisite, ensuring the obj dir exists.
+$(OBJDIR)/%.o: $(SRCDIR)/%.cpp | $(OBJDIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Rule to create the object directory.
+$(OBJDIR):
+	@mkdir -p $(OBJDIR)
+
+# Phony target to clean up the build artifacts.
+.PHONY: clean
+clean:
+	@echo "Cleaning up..."
+	@rm -rf $(OBJDIR) $(EXECUTABLE)
