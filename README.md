@@ -40,6 +40,7 @@ While running, you can type commands:
 - `<drum> on <step1> <step2> ...`: e.g., `snare on 5 13`.
 
 #
-- copyright 2026 xbcx google
-miniaudio license in third_party/miniaudio.h
-synthGBA used as basis for GBA make and libSynthGBA
+- copyright 2026 xbcx && google (gemini)
+- miniaudio license in third_party/miniaudio.h
+- https://github.com/Wollw/SynthGBA was used as basis for GBA make and libSynthGBA
+- https://github.com/xvw/gba-rom-template was used
